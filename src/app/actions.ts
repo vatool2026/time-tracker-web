@@ -626,9 +626,9 @@ export async function inviteEmployeeAction(
   );
 
   // 1. Invite the user
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
   const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-    // Optionally redirect to a specific URL after they click the invite link
-    // redirectTo: 'http://localhost:3000/login'
+    redirectTo: `${siteUrl}/auth/confirm?next=/setup-password`
   });
 
   if (inviteError || !inviteData.user) {
@@ -683,3 +683,26 @@ export async function inviteEmployeeAction(
   return { success: true, message: 'Mitarbeiter erfolgreich eingeladen. Eine E-Mail wurde versendet.' };
 }
 
+/**
+ * Sets a new password for a user who has just accepted an invite.
+ */
+export async function setupPasswordAction(formData: FormData): Promise<ActionResponse> {
+  const password = formData.get('password') as string;
+
+  if (!password) {
+    return { success: false, message: 'Bitte ein Passwort eingeben.' };
+  }
+
+  const supabase = await createClient();
+
+  const { error } = await supabase.auth.updateUser({
+    password: password
+  });
+
+  if (error) {
+    return { success: false, message: formatErrorMessage(error, 'Fehler beim Setzen des Passworts') };
+  }
+
+  revalidatePath('/dashboard');
+  return { success: true, message: 'Passwort erfolgreich gesetzt.' };
+}
