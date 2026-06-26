@@ -1,3 +1,0 @@
-module.exports=[27572,a=>{"use strict";var b=a.i(7997);a.s(["default",0,function({children:a}){return(0,b.jsx)("html",{lang:"de",children:(0,b.jsx)("body",{children:(0,b.jsxs)("div",{className:"app-background",children:[(0,b.jsx)("div",{className:"blob blob-1"}),(0,b.jsx)("div",{className:"blob blob-2"}),a]})})})},"metadata",0,{title:"Zeiterfassung Pro",description:"Premium SaaS Zeiterfassung für moderne Unternehmen"}])},50645,a=>{a.n(a.i(27572))}];
-
-//# sourceMappingURL=src_app_layout_tsx_0r5yz5t._.js.map
