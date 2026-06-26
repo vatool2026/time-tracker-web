@@ -32,6 +32,26 @@ function getLocalTimeString(): string {
   return `${hours}:${minutes}:${seconds}`;
 }
 
+/**
+ * Formats error messages, specifically handling cases where Supabase SDK wraps fetch errors
+ * resulting in empty object stringification '{}' or 'fetch failed' when a project is paused.
+ */
+function formatErrorMessage(error: { message?: string } | null | undefined, fallbackMessage: string): string {
+  if (!error) return fallbackMessage;
+  
+  const msg = error.message;
+  
+  if (!msg || msg === '{}' || (typeof msg === 'string' && msg.trim() === '{}')) {
+    return `${fallbackMessage} (Verbindungsfehler. Bitte prüfen Sie, ob das Supabase-Projekt aktiv ist und die Internetverbindung steht)`;
+  }
+  
+  if (msg === 'fetch failed') {
+    return `${fallbackMessage} (Verbindung zu Supabase fehlgeschlagen. Ist das Projekt pausiert?)`;
+  }
+  
+  return `${fallbackMessage}: ${msg}`;
+}
+
 export async function loginAction(formData: FormData): Promise<ActionResponse> {
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
@@ -48,7 +68,7 @@ export async function loginAction(formData: FormData): Promise<ActionResponse> {
   });
 
   if (error) {
-    return { success: false, message: `Fehler bei der Anmeldung: ${error.message}` };
+    return { success: false, message: formatErrorMessage(error, 'Fehler bei der Anmeldung') };
   }
 
   revalidatePath('/dashboard', 'layout');
@@ -75,7 +95,7 @@ export async function registerAction(formData: FormData): Promise<ActionResponse
   });
 
   if (authError || !authData.user) {
-    return { success: false, message: `Fehler bei der Registrierung: ${authError?.message || 'Registrierung fehlgeschlagen'}` };
+    return { success: false, message: formatErrorMessage(authError, 'Fehler bei der Registrierung') };
   }
 
   const userId = authData.user.id;
