@@ -6,12 +6,14 @@ import TimeTrackerCard from './TimeTrackerCard';
 import TimesheetTable from './TimesheetTable';
 import AnalyticsCharts from './AnalyticsCharts';
 import EmployeeSettingsModal from './EmployeeSettingsModal';
+import InviteEmployeeModal from './InviteEmployeeModal';
 import ThemeToggle from './ThemeToggle';
 import { isGermanHoliday } from '@/utils/holidays';
 import { calculateSurcharges } from '@/utils/surchargeCalculator';
+import AdminOverview from './AdminOverview';
 import { 
   Building, LogOut, Users, Download, 
-  Shield, FileText, CheckCircle, AlertCircle 
+  Shield, FileText, CheckCircle, AlertCircle, PlusCircle, LayoutDashboard 
 } from 'lucide-react';
 
 interface TimeEntry {
@@ -87,11 +89,13 @@ export default function DashboardContainer({
   allTimesheetSettings,
   allCompanyEntries
 }: DashboardContainerProps) {
-  const [activeTab, setActiveTab] = useState<'employee' | 'admin'>('employee');
-  const [adminSubTab, setAdminSubTab] = useState<'employees' | 'surcharges' | 'company' | 'reports'>('employees');
+  const isAdmin = profile.role === 'COMPANY_ADMIN' || profile.role === 'ROOT';
+  const [activeTab, setActiveTab] = useState<'employee' | 'admin'>(isAdmin ? 'admin' : 'employee');
+  const [adminSubTab, setAdminSubTab] = useState<'overview' | 'employees' | 'surcharges' | 'company' | 'reports'>('overview');
   
   // Modals
   const [editingEmployee, setEditingEmployee] = useState<Profile | null>(null);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   
   // Settings forms
   const [companyName, setCompanyName] = useState<string>(profile.companies?.name || '');
@@ -101,7 +105,7 @@ export default function DashboardContainer({
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
-  const isAdmin = profile.role === 'COMPANY_ADMIN' || profile.role === 'ROOT';
+
 
   const showMsg = (type: 'success' | 'error', text: string) => {
     setMessage({ type, text });
@@ -324,46 +328,14 @@ export default function DashboardContainer({
           </div>
         </div>
 
-        {/* Tab Selector */}
-        {isAdmin && (
-          <div className="glass" style={{ display: 'flex', padding: '0.25rem', borderRadius: 'var(--border-radius-sm)', marginLeft: 'auto', gap: '0.25rem' }}>
-            <button
-              onClick={() => setActiveTab('employee')}
-              className="btn"
-              style={{
-                padding: '0.4rem 1rem',
-                fontSize: '0.85rem',
-                background: activeTab === 'employee' ? 'var(--accent-gradient)' : 'transparent',
-                color: activeTab === 'employee' ? 'white' : 'var(--text-primary)',
-                boxShadow: activeTab === 'employee' ? '0 4px 10px rgba(59, 130, 246, 0.2)' : 'none',
-                borderRadius: '6px'
-              }}
-            >
-              Mein Dashboard
-            </button>
-            <button
-              onClick={() => setActiveTab('admin')}
-              className="btn"
-              style={{
-                padding: '0.4rem 1rem',
-                fontSize: '0.85rem',
-                background: activeTab === 'admin' ? 'var(--accent-gradient)' : 'transparent',
-                color: activeTab === 'admin' ? 'white' : 'var(--text-primary)',
-                boxShadow: activeTab === 'admin' ? '0 4px 10px rgba(59, 130, 246, 0.2)' : 'none',
-                borderRadius: '6px'
-              }}
-            >
-              Admin-Bereich
-            </button>
-          </div>
-        )}
+
 
         {/* User profile & controls */}
         <div style={{ 
           display: 'flex', 
           alignItems: 'center', 
           gap: '1rem', 
-          marginLeft: isAdmin ? '0' : 'auto' 
+          marginLeft: 'auto' 
         }}>
           <div className="user-details">
             <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>{profile.first_name} {profile.last_name}</span>
@@ -423,6 +395,7 @@ export default function DashboardContainer({
           {/* Admin Navigation */}
           <div style={{ display: 'flex', borderBottom: '1px solid var(--glass-border)', paddingBottom: '1rem', marginBottom: '2rem', gap: '1.5rem', flexWrap: 'wrap' }}>
             {[
+              { id: 'overview', label: 'Übersicht', icon: <LayoutDashboard size={16} /> },
               { id: 'employees', label: 'Mitarbeiter verwalten', icon: <Users size={16} /> },
               { id: 'surcharges', label: 'Zuschlagsregeln', icon: <Shield size={16} /> },
               { id: 'company', label: 'Firmendetails', icon: <Building size={16} /> },
@@ -430,7 +403,7 @@ export default function DashboardContainer({
             ].map(tab => (
               <button
                 key={tab.id}
-                onClick={() => setAdminSubTab(tab.id as 'employees' | 'surcharges' | 'company' | 'reports')}
+                onClick={() => setAdminSubTab(tab.id as 'overview' | 'employees' | 'surcharges' | 'company' | 'reports')}
                 style={{
                   border: 'none',
                   background: 'none',
@@ -451,10 +424,24 @@ export default function DashboardContainer({
             ))}
           </div>
 
+          {/* Sub-Tab content: Overview */}
+          {adminSubTab === 'overview' && (
+            <AdminOverview
+              employees={employees}
+              allCompanyEntries={allCompanyEntries}
+              allCategorySettings={allCategorySettings}
+            />
+          )}
+
           {/* Sub-Tab content: Employees */}
           {adminSubTab === 'employees' && employees && (
             <div>
-              <h3 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>Firmen-Mitarbeiter</h3>
+              <div className="flex-between" style={{ marginBottom: '1.5rem' }}>
+                <h3 style={{ fontSize: '1.25rem', margin: 0 }}>Firmen-Mitarbeiter</h3>
+                <button onClick={() => setIsInviteModalOpen(true)} className="btn btn-primary">
+                  <PlusCircle size={16} /> Mitarbeiter einladen
+                </button>
+              </div>
               
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '600px' }}>
@@ -666,6 +653,14 @@ export default function DashboardContainer({
           employee={editingEmployee}
           settings={allTimesheetSettings?.find(s => s.user_id === editingEmployee.id) || null}
           onClose={() => setEditingEmployee(null)}
+        />
+      )}
+
+      {/* Invite employee Modal */}
+      {isInviteModalOpen && (
+        <InviteEmployeeModal 
+          onClose={() => setIsInviteModalOpen(false)}
+          onSuccess={(msg) => showMsg('success', msg)}
         />
       )}
 

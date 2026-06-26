@@ -586,3 +586,100 @@ export async function deleteTimeEntryAction(entryId: string): Promise<ActionResp
   revalidatePath('/dashboard');
   return { success: true, message: 'Eintrag erfolgreich gelöscht.' };
 }
+
+/**
+ * Admin action: Invites a new employee using the Supabase Admin API.
+ */
+export async function inviteEmployeeAction(
+  firstName: string,
+  lastName: string,
+  email: string,
+  role: 'ROOT' | 'COMPANY_ADMIN' | 'EMPLOYEE',
+  employmentCategory: 'FULLTIME' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER'
+): Promise<ActionResponse> {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, message: 'Nicht authentifiziert.' };
+
+  // Check admin rights
+  const { data: callerProfile } = await supabase
+    .from('profiles')
+    .select('role, company_id')
+    .eq('id', user.id)
+    .single();
+
+  if (!callerProfile || (callerProfile.role !== 'COMPANY_ADMIN' && callerProfile.role !== 'ROOT')) {
+    return { success: false, message: 'Keine Administratorrechte.' };
+  }
+
+  // Use the service role key to invite user without affecting the current session
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) {
+    return { success: false, message: 'Serverkonfigurationsfehler: SUPABASE_SERVICE_ROLE_KEY fehlt.' };
+  }
+
+  const { createClient: createSupabaseClient } = await import('@supabase/supabase-js');
+  const supabaseAdmin = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    serviceRoleKey
+  );
+
+  // 1. Invite the user
+  const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+    // Optionally redirect to a specific URL after they click the invite link
+    // redirectTo: 'http://localhost:3000/login'
+  });
+
+  if (inviteError || !inviteData.user) {
+    return { success: false, message: formatErrorMessage(inviteError, 'Fehler beim Einladen des Nutzers') };
+  }
+
+  const newUserId = inviteData.user.id;
+
+  // 2. Create the user profile
+  const { error: profileError } = await supabaseAdmin
+    .from('profiles')
+    .insert({
+      id: newUserId,
+      company_id: callerProfile.company_id,
+      email,
+      first_name: firstName,
+      last_name: lastName,
+      role,
+      employment_category: employmentCategory,
+    });
+
+  if (profileError) {
+    // Attempt rollback/delete auth user if possible
+    await supabaseAdmin.auth.admin.deleteUser(newUserId);
+    return { success: false, message: `Fehler beim Erstellen des Profils: ${profileError.message}` };
+  }
+
+  // 3. Create default Timesheet Settings for the new user for the current year
+  const currentYear = new Date().getFullYear();
+  const { error: timesheetError } = await supabaseAdmin
+    .from('timesheet_settings')
+    .insert({
+      user_id: newUserId,
+      year: currentYear,
+      carry_over_hours: 0.0,
+      vacation_days_entitlement: 30.0,
+      carry_over_vacation_days: 0.0,
+      target_hours_monday: 8.0,
+      target_hours_tuesday: 8.0,
+      target_hours_wednesday: 8.0,
+      target_hours_thursday: 8.0,
+      target_hours_friday: 8.0,
+      target_hours_saturday: 0.0,
+      target_hours_sunday: 0.0,
+    });
+
+  if (timesheetError) {
+    return { success: false, message: `Fehler beim Erstellen der Zeiteinstellungen: ${timesheetError.message}` };
+  }
+
+  revalidatePath('/dashboard');
+  return { success: true, message: 'Mitarbeiter erfolgreich eingeladen. Eine E-Mail wurde versendet.' };
+}
+

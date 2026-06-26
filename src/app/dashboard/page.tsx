@@ -60,11 +60,12 @@ export default async function DashboardPage() {
   let allCompanyEntries = null;
 
   if (isAdmin) {
-    // Fetch all profiles in the same company
+    // Fetch all profiles in the same company, excluding admins since they don't track time
     const { data: emps } = await supabase
       .from('profiles')
       .select('*')
       .eq('company_id', profile.company_id)
+      .eq('role', 'EMPLOYEE')
       .order('last_name', { ascending: true });
 
     employees = emps;
