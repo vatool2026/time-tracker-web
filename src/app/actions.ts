@@ -100,23 +100,21 @@ export async function registerAction(formData: FormData): Promise<ActionResponse
 
   const userId = authData.user.id;
 
-  // 2. Create the company
-  const { data: companyData, error: companyError } = await supabase
+  // 2. Create the company with a client-generated UUID to bypass RLS select constraints during signup
+  const companyId = crypto.randomUUID();
+  const { error: companyError } = await supabase
     .from('companies')
     .insert({
+      id: companyId,
       name: companyName,
       billing_period_type: 'CALENDAR_MONTH',
       billing_period_start_day: 1,
-    })
-    .select()
-    .single();
+    });
 
-  if (companyError || !companyData) {
+  if (companyError) {
     // Attempt rollback/delete auth user if possible, but keep it simple
-    return { success: false, message: `Fehler beim Erstellen der Firma: ${companyError?.message || 'Unbekannter Fehler'}` };
+    return { success: false, message: formatErrorMessage(companyError, 'Fehler beim Erstellen der Firma') };
   }
-
-  const companyId = companyData.id;
 
   // 3. Create the user profile (as COMPANY_ADMIN)
   const { error: profileError } = await supabase
