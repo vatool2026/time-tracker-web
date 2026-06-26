@@ -99,6 +99,7 @@ export async function registerAction(formData: FormData): Promise<ActionResponse
   }
 
   const userId = authData.user.id;
+  const confirmationRequired = !authData.session;
 
   // 2. Create the company with a client-generated UUID to bypass RLS select constraints during signup
   const companyId = crypto.randomUUID();
@@ -178,7 +179,13 @@ export async function registerAction(formData: FormData): Promise<ActionResponse
   }
 
   revalidatePath('/dashboard', 'layout');
-  return { success: true, message: 'Unternehmen erfolgreich registriert.' };
+  return { 
+    success: true, 
+    message: confirmationRequired 
+      ? 'Unternehmen registriert. Bitte bestätigen Sie Ihre E-Mail-Adresse in Ihrem Posteingang, um sich anzumelden.' 
+      : 'Unternehmen erfolgreich registriert.',
+    data: { confirmationRequired } 
+  };
 }
 
 export async function logoutAction(): Promise<void> {

@@ -8,6 +8,7 @@ import { Building, User, Mail, Lock, CheckCircle, AlertCircle, ArrowLeft } from 
 
 export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -36,10 +37,47 @@ export default function RegisterPage() {
     if (!res.success) {
       setError(res.message);
     } else {
-      // Re-route to dashboard automatically
-      window.location.href = '/dashboard';
+      const data = res.data as { confirmationRequired?: boolean } | undefined;
+      if (data?.confirmationRequired) {
+        setSuccess(res.message);
+      } else {
+        // Re-route to dashboard automatically
+        window.location.href = '/dashboard';
+      }
     }
   };
+
+  if (success) {
+    return (
+      <main className="container flex-center" style={{ minHeight: '100vh', flexDirection: 'column', padding: '2rem 1rem', position: 'relative' }}>
+        
+        {/* Top right theme toggle */}
+        <div style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', zIndex: 50 }}>
+          <ThemeToggle />
+        </div>
+
+        {/* Success Card */}
+        <div className="glass glass-card" style={{ width: '100%', maxWidth: '520px', padding: '2.5rem', zIndex: 10, textAlign: 'center' }}>
+          
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem', color: 'var(--accent-primary)' }}>
+            <CheckCircle size={64} style={{ color: '#8b5cf6' }} />
+          </div>
+
+          <h1 className="text-gradient" style={{ fontSize: '2rem', marginBottom: '1rem' }}>E-Mail bestätigen</h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', lineHeight: '1.6', marginBottom: '2rem' }}>
+            {success}
+          </p>
+
+          <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: '1.5rem' }}>
+            <Link href="/login" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '46px', gap: '0.5rem' }}>
+              <ArrowLeft size={16} /> Weiter zum Login
+            </Link>
+          </div>
+
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="container flex-center" style={{ minHeight: '100vh', flexDirection: 'column', padding: '2rem 1rem', position: 'relative' }}>
