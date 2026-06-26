@@ -108,7 +108,7 @@ export default function EmployeeSettingsModal({
     }}>
       
       {/* Modal Card */}
-      <div className="glass" style={{
+      <div className="glass-card" style={{
         width: '100%',
         maxWidth: '650px',
         maxHeight: '90vh',
@@ -116,7 +116,9 @@ export default function EmployeeSettingsModal({
         position: 'relative',
         padding: '2rem',
         borderRadius: 'var(--border-radius-lg)',
-        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.4)'
+        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.4)',
+        background: 'var(--bg-primary)',
+        border: '1px solid var(--glass-border)'
       }}>
         
         {/* Header */}

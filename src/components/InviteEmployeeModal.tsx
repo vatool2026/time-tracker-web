@@ -47,11 +47,14 @@ export default function InviteEmployeeModal({ onClose, onSuccess }: InviteEmploy
       zIndex: 1000,
       padding: '1rem'
     }}>
-      <div className="glass glass-card" style={{
+      <div className="glass-card" style={{
         width: '100%',
         maxWidth: '500px',
         padding: '2rem',
-        position: 'relative'
+        position: 'relative',
+        background: 'var(--bg-primary)',
+        border: '1px solid var(--glass-border)',
+        boxShadow: 'var(--glass-shadow)'
       }}>
         <button 
           onClick={onClose}
