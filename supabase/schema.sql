@@ -110,17 +110,19 @@ CREATE POLICY "Allow users to view own company" ON public.companies FOR SELECT T
 CREATE POLICY "Allow admin to update own company" ON public.companies FOR UPDATE TO authenticated USING (public.get_user_role() = 'COMPANY_ADMIN' AND id = public.get_user_company_id());
 
 -- 2. Profiles Policies
-CREATE POLICY "Allow users to insert own profile" ON public.profiles FOR INSERT WITH CHECK (id = auth.uid());
+CREATE POLICY "Allow public insert on profiles" ON public.profiles FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow users to view profiles in same company" ON public.profiles FOR SELECT TO authenticated USING (company_id = public.get_user_company_id());
 CREATE POLICY "Allow users to update own profile or admin to update company profiles" ON public.profiles FOR UPDATE TO authenticated USING (id = auth.uid() OR (public.get_user_role() = 'COMPANY_ADMIN' AND company_id = public.get_user_company_id()));
 
 -- 3. Category Settings Policies
 CREATE POLICY "Allow users to view category settings" ON public.category_settings FOR SELECT TO authenticated USING (company_id = public.get_user_company_id());
-CREATE POLICY "Allow admin to manage category settings" ON public.category_settings FOR ALL TO authenticated USING (public.get_user_role() = 'COMPANY_ADMIN' AND company_id = public.get_user_company_id());
+CREATE POLICY "Allow admin to update category settings" ON public.category_settings FOR UPDATE TO authenticated USING (public.get_user_role() = 'COMPANY_ADMIN' AND company_id = public.get_user_company_id());
+CREATE POLICY "Allow admin to delete category settings" ON public.category_settings FOR DELETE TO authenticated USING (public.get_user_role() = 'COMPANY_ADMIN' AND company_id = public.get_user_company_id());
+CREATE POLICY "Allow public insert on category_settings" ON public.category_settings FOR INSERT WITH CHECK (true);
 
 -- 4. Timesheet Settings Policies
 CREATE POLICY "Allow users to view own timesheet settings or admin to view company settings" ON public.timesheet_settings FOR SELECT TO authenticated USING (user_id = auth.uid() OR (public.get_user_role() = 'COMPANY_ADMIN' AND (SELECT company_id FROM public.profiles WHERE id = user_id) = public.get_user_company_id()));
-CREATE POLICY "Allow users or admin to insert timesheet settings" ON public.timesheet_settings FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid() OR public.get_user_role() = 'COMPANY_ADMIN');
+CREATE POLICY "Allow public insert on timesheet_settings" ON public.timesheet_settings FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow users or admin to update timesheet settings" ON public.timesheet_settings FOR UPDATE TO authenticated USING (user_id = auth.uid() OR (public.get_user_role() = 'COMPANY_ADMIN' AND (SELECT company_id FROM public.profiles WHERE id = user_id) = public.get_user_company_id()));
 CREATE POLICY "Allow admin to delete timesheet settings" ON public.timesheet_settings FOR DELETE TO authenticated USING (public.get_user_role() = 'COMPANY_ADMIN' AND (SELECT company_id FROM public.profiles WHERE id = user_id) = public.get_user_company_id());
 
