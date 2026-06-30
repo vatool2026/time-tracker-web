@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { clockInAction, clockOutAction, recordBreakAction, createAbsenceAction } from '@/app/actions';
+import { clockInAction, clockOutAction, recordBreakAction, setDayAbsenceCodeAction, createManualTimeEntryAction } from '@/app/actions';
 import { Coffee, LogIn, LogOut, Calendar, Edit3, AlertCircle, Check } from 'lucide-react';
+import CustomSelect from './CustomSelect';
 
 interface TimeTrackerCardProps {
   activeEntry: {
@@ -12,9 +13,12 @@ interface TimeTrackerCardProps {
     break_minutes: number;
     note: string | null;
   } | null;
+  currentUserId: string;
+  feature_urlaub?: boolean;
+  feature_abwesenheit?: boolean;
 }
 
-export default function TimeTrackerCard({ activeEntry }: TimeTrackerCardProps) {
+export default function TimeTrackerCard({ activeEntry, currentUserId, feature_urlaub = false, feature_abwesenheit = false }: TimeTrackerCardProps) {
   const [note, setNote] = useState<string>('');
   const [elapsedTime, setElapsedTime] = useState<string>('00:00:00');
   const [isOnBreak, setIsOnBreak] = useState<boolean>(() => {
@@ -35,8 +39,14 @@ export default function TimeTrackerCard({ activeEntry }: TimeTrackerCardProps) {
   
   // Absence Form State
   const [absenceDate, setAbsenceDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
-  const [absenceCode, setAbsenceCode] = useState<'U' | 'K'>('U');
+  const [absenceCode, setAbsenceCode] = useState<'U' | 'K'>(() => feature_urlaub ? 'U' : 'K');
   const [absenceNote, setAbsenceNote] = useState<string>('');
+
+  // Manual Entry Form State
+  const [manualDate, setManualDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [manualStartTime, setManualStartTime] = useState<string>('08:00');
+  const [manualEndTime, setManualEndTime] = useState<string>('16:30');
+  const [manualBreak, setManualBreak] = useState<number>(30);
 
   // Timer for active work and active break
   useEffect(() => {
@@ -152,11 +162,21 @@ export default function TimeTrackerCard({ activeEntry }: TimeTrackerCardProps) {
       showMsg('error', 'Bitte ein Datum auswählen.');
       return;
     }
-    const res = await createAbsenceAction(absenceDate, absenceCode, absenceNote);
+    const res = await setDayAbsenceCodeAction(absenceDate, absenceCode, absenceNote);
     if (res.success) {
       const typeStr = absenceCode === 'U' ? 'Urlaub' : 'Krankheit';
       showMsg('success', `${typeStr} für den ${absenceDate} erfolgreich eingetragen.`);
       setAbsenceNote('');
+    } else {
+      showMsg('error', res.message);
+    }
+  };
+
+  const handleManualSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await createManualTimeEntryAction(currentUserId, manualDate, manualStartTime, manualEndTime, manualBreak, '', '');
+    if (res.success) {
+      showMsg('success', 'Nachträgliche Zeiterfassung erfolgreich eingetragen.');
     } else {
       showMsg('error', res.message);
     }
@@ -168,21 +188,23 @@ export default function TimeTrackerCard({ activeEntry }: TimeTrackerCardProps) {
       {/* Primary Clocking Card */}
       <div className="glass glass-card flex-center" style={{ flexDirection: 'column', gap: '1.5rem', minHeight: '350px', position: 'relative' }}>
         
-        {/* Status indicator */}
-        <div style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{
-            width: '10px',
-            height: '10px',
-            borderRadius: '50%',
-            backgroundColor: activeEntry ? (isOnBreak ? 'var(--warning)' : 'var(--success)') : 'var(--text-secondary)',
-            boxShadow: activeEntry ? `0 0 10px ${isOnBreak ? 'var(--warning)' : 'var(--success)'}` : 'none'
-          }} />
-          <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
-            {activeEntry ? (isOnBreak ? 'In Pause' : 'Aktiv eingestempelt') : 'Nicht eingestempelt'}
-          </span>
+        {/* Header and Status indicator */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <h2 style={{ fontSize: '1.5rem', color: 'var(--text-primary)', margin: 0 }}>Zeiterfassung</h2>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+            <span style={{
+              width: '10px',
+              height: '10px',
+              borderRadius: '50%',
+              backgroundColor: activeEntry ? (isOnBreak ? 'var(--warning)' : 'var(--success)') : 'var(--text-secondary)',
+              boxShadow: activeEntry ? `0 0 10px ${isOnBreak ? 'var(--warning)' : 'var(--success)'}` : 'none'
+            }} />
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500, whiteSpace: 'nowrap' }}>
+              {activeEntry ? (isOnBreak ? 'In Pause' : 'Aktiv eingestempelt') : 'Nicht eingestempelt'}
+            </span>
+          </div>
         </div>
-
-        <h2 style={{ fontSize: '1.5rem', color: 'var(--text-primary)', alignSelf: 'flex-start' }}>Zeiterfassung</h2>
 
         {/* Live Timer Display */}
         <div className="flex-center" style={{ flexDirection: 'column', margin: '1rem 0' }}>
@@ -267,7 +289,8 @@ export default function TimeTrackerCard({ activeEntry }: TimeTrackerCardProps) {
       </div>
 
       {/* Secondary Absence Booking Card */}
-      <div className="glass glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', minHeight: '350px' }}>
+      {(feature_urlaub || feature_abwesenheit) && (
+        <div className="glass glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', minHeight: '350px' }}>
         <h2 style={{ fontSize: '1.5rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <Calendar size={22} className="text-gradient" /> Abwesenheit buchen
         </h2>
@@ -295,15 +318,14 @@ export default function TimeTrackerCard({ activeEntry }: TimeTrackerCardProps) {
               <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>
                 Typ
               </label>
-              <select
+              <CustomSelect
                 value={absenceCode}
-                onChange={(e) => setAbsenceCode(e.target.value as 'U' | 'K')}
-                className="input-field"
-                style={{ appearance: 'auto', cursor: 'pointer' }}
-              >
-                <option value="U">🏖️ Urlaub (U)</option>
-                <option value="K">🤒 Krank (K)</option>
-              </select>
+                onChange={(val) => setAbsenceCode(val as 'U' | 'K')}
+                options={[
+                  ...(feature_urlaub ? [{ value: 'U', label: '🏖️ Urlaub (U)' }] : []),
+                  ...(feature_abwesenheit ? [{ value: 'K', label: '🤒 Krank (K)' }] : [])
+                ]}
+              />
             </div>
           </div>
 
@@ -322,6 +344,44 @@ export default function TimeTrackerCard({ activeEntry }: TimeTrackerCardProps) {
 
           <button type="submit" className="btn btn-secondary glass" style={{ marginTop: 'auto', width: '100%', height: '48px', fontWeight: 600 }}>
             Eintragen
+          </button>
+        </form>
+      </div>
+      )}
+
+      {/* Manual Entry Card (Forgot to clock in) */}
+      <div className="glass glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <h2 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <Edit3 size={20} className="text-gradient" /> Vergessen zu stempeln?
+        </h2>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.5, marginTop: '-0.5rem' }}>
+          Tragen Sie hier eine vergangene Schicht nach, falls Sie vergessen haben zu stempeln.
+        </p>
+
+        <form onSubmit={handleManualSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div className="grid-cols-2" style={{ gap: '1rem' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>Datum</label>
+              <input type="date" value={manualDate} onChange={(e) => setManualDate(e.target.value)} className="input-field" required />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>Pause (Min)</label>
+              <input type="number" value={manualBreak} onChange={(e) => setManualBreak(Number(e.target.value))} className="input-field" min="0" required />
+            </div>
+          </div>
+          <div className="grid-cols-2" style={{ gap: '1rem' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>Startzeit</label>
+              <input type="time" value={manualStartTime} onChange={(e) => setManualStartTime(e.target.value)} className="input-field" required />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>Endzeit</label>
+              <input type="time" value={manualEndTime} onChange={(e) => setManualEndTime(e.target.value)} className="input-field" required />
+            </div>
+          </div>
+
+          <button type="submit" className="btn btn-secondary glass" style={{ marginTop: '0.5rem', width: '100%', height: '48px', fontWeight: 600 }}>
+            Nachtragen
           </button>
         </form>
       </div>

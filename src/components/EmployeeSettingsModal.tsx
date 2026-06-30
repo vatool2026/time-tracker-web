@@ -3,11 +3,13 @@
 import React, { useState } from 'react';
 import { updateEmployeeSettingsAction } from '@/app/actions';
 import { X, Save, AlertCircle, Check } from 'lucide-react';
+import CustomSelect from './CustomSelect';
 
 interface EmployeeProfile {
   id: string;
   first_name: string;
   last_name: string;
+  employee_number?: string | null;
   email: string;
   role: 'ROOT' | 'COMPANY_ADMIN' | 'EMPLOYEE';
   employment_category: 'FULLTIME' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER';
@@ -30,15 +32,18 @@ interface EmployeeSettingsModalProps {
   employee: EmployeeProfile;
   settings: EmployeeSettings | null;
   onClose: () => void;
+  feature_urlaub?: boolean;
 }
 
 export default function EmployeeSettingsModal({
   employee,
   settings,
-  onClose
+  onClose,
+  feature_urlaub = false
 }: EmployeeSettingsModalProps) {
   const [role, setRole] = useState<'ROOT' | 'COMPANY_ADMIN' | 'EMPLOYEE'>(employee.role);
   const [category, setCategory] = useState<'FULLTIME' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER'>(employee.employment_category);
+  const [employeeNumber, setEmployeeNumber] = useState<string>(employee.employee_number || '');
   const [carryOverHours, setCarryOverHours] = useState<number>(settings?.carry_over_hours || 0);
   const [vacationEntitlement, setVacationEntitlement] = useState<number>(settings?.vacation_days_entitlement || 30);
   const [carryOverVacation, setCarryOverVacation] = useState<number>(settings?.carry_over_vacation_days || 0);
@@ -77,7 +82,8 @@ export default function EmployeeSettingsModal({
       Number(carryOverHours),
       Number(vacationEntitlement),
       Number(carryOverVacation),
-      targets
+      targets,
+      employeeNumber || null
     );
 
     setLoading(false);
@@ -144,27 +150,46 @@ export default function EmployeeSettingsModal({
           {/* Section: Profile settings */}
           <div className="grid-cols-2" style={{ gap: '1rem' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>
-                Rolle im Unternehmen
-              </label>
-              <select value={role} onChange={(e) => setRole(e.target.value as 'ROOT' | 'COMPANY_ADMIN' | 'EMPLOYEE')} className="input-field" style={{ appearance: 'auto' }}>
-                <option value="EMPLOYEE">Mitarbeiter (EMPLOYEE)</option>
-                <option value="COMPANY_ADMIN">Administrator (COMPANY_ADMIN)</option>
-                <option value="ROOT">Inhaber (ROOT)</option>
-              </select>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Rolle</label>
+              <CustomSelect
+                value={role}
+                onChange={(val) => setRole(val as 'ROOT' | 'COMPANY_ADMIN' | 'EMPLOYEE')}
+                options={[
+                  { value: 'EMPLOYEE', label: 'Mitarbeiter' },
+                  { value: 'COMPANY_ADMIN', label: 'Firmen-Admin' },
+                  { value: 'ROOT', label: 'Root (System-Admin)' }
+                ]}
+              />
             </div>
             
             <div>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Anstellungskategorie</label>
+              <CustomSelect
+                value={category}
+                onChange={(val) => setCategory(val as 'FULLTIME' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER')}
+                options={[
+                  { value: 'FULLTIME', label: 'Vollzeit (FULLTIME)' },
+                  { value: 'PARTTIME', label: 'Teilzeit (PARTTIME)' },
+                  { value: 'MIDIJOB', label: 'Midijob' },
+                  { value: 'MINIJOB', label: 'Minijob' },
+                  { value: 'OTHER', label: 'Andere (OTHER)' }
+                ]}
+              />
+            </div>
+          </div>
+
+          <div className="grid-cols-2" style={{ gap: '1rem' }}>
+            <div>
               <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>
-                Beschäftigungsart
+                Mitarbeiternummer
               </label>
-              <select value={category} onChange={(e) => setCategory(e.target.value as 'FULLTIME' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER')} className="input-field" style={{ appearance: 'auto' }}>
-                <option value="FULLTIME">Vollzeit (FULLTIME)</option>
-                <option value="PARTTIME">Teilzeit (PARTTIME)</option>
-                <option value="MIDIJOB">Midijob (MIDIJOB)</option>
-                <option value="MINIJOB">Minijob (MINIJOB)</option>
-                <option value="OTHER">Andere (OTHER)</option>
-              </select>
+              <input
+                type="text"
+                value={employeeNumber}
+                onChange={(e) => setEmployeeNumber(e.target.value)}
+                className="input-field"
+                placeholder="Optional"
+              />
             </div>
           </div>
 
@@ -183,31 +208,35 @@ export default function EmployeeSettingsModal({
               />
             </div>
             
-            <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>
-                Urlaubsanspruch (Tage)
-              </label>
-              <input
-                type="number"
-                step="0.5"
-                value={vacationEntitlement}
-                onChange={(e) => setVacationEntitlement(Number(e.target.value))}
-                className="input-field"
-              />
-            </div>
+            {feature_urlaub && (
+              <>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>
+                    Urlaubsanspruch (Tage)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={vacationEntitlement}
+                    onChange={(e) => setVacationEntitlement(Number(e.target.value))}
+                    className="input-field"
+                  />
+                </div>
 
-            <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>
-                Resturlaub Übertrag (Tage)
-              </label>
-              <input
-                type="number"
-                step="0.5"
-                value={carryOverVacation}
-                onChange={(e) => setCarryOverVacation(Number(e.target.value))}
-                className="input-field"
-              />
-            </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>
+                    Resturlaub Übertrag (Tage)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={carryOverVacation}
+                    onChange={(e) => setCarryOverVacation(Number(e.target.value))}
+                    className="input-field"
+                  />
+                </div>
+              </>
+            )}
           </div>
 
           {/* Section: Daily target hours (Soll-Stunden) */}

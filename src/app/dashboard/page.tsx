@@ -27,6 +27,10 @@ export default async function DashboardPage() {
     redirect('/login');
   }
 
+  if (profile.role === 'ROOT') {
+    redirect('/root');
+  }
+
   const currentYear = new Date().getFullYear();
 
   // Fetch current user's time entries
@@ -58,6 +62,7 @@ export default async function DashboardPage() {
   let allCategorySettings = null;
   let allTimesheetSettings = null;
   let allCompanyEntries = null;
+  let absenceCodes = null;
 
   if (isAdmin) {
     // Fetch all profiles in the same company, excluding admins since they don't track time
@@ -97,6 +102,25 @@ export default async function DashboardPage() {
 
       allCompanyEntries = compEntries;
     }
+
+    // Fetch all company absence codes
+    const { data: codes } = await supabase
+      .from('absence_codes')
+      .select('*')
+      .eq('company_id', profile.company_id)
+      .order('code', { ascending: true });
+    
+    absenceCodes = codes;
+  } else {
+    // If regular employee, fetch only their category's absence codes
+    const { data: codes } = await supabase
+      .from('absence_codes')
+      .select('*')
+      .eq('company_id', profile.company_id)
+      .eq('employment_category', profile.employment_category)
+      .order('code', { ascending: true });
+      
+    absenceCodes = codes;
   }
 
   return (
@@ -110,6 +134,7 @@ export default async function DashboardPage() {
         allCategorySettings={allCategorySettings}
         allTimesheetSettings={allTimesheetSettings}
         allCompanyEntries={allCompanyEntries}
+        absenceCodes={absenceCodes}
       />
     </main>
   );

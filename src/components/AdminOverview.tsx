@@ -8,6 +8,7 @@ interface Profile {
   id: string;
   first_name: string;
   last_name: string;
+  employee_number?: string | null;
   employment_category: string;
   email: string;
   role: string;
@@ -28,10 +29,9 @@ interface SurchargeSettings {
   company_id?: string;
   category?: 'FULLTIME' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER' | string;
   night_surcharge_start_time: string;
+  night_surcharge_end_time: string;
   night_surcharge_rate: number;
-  sunday_surcharge_start_time: string;
   sunday_surcharge_rate: number;
-  holiday_surcharge_start_time: string;
   holiday_surcharge_rate: number;
 }
 
@@ -96,10 +96,9 @@ export default function AdminOverview({
           const empSurchSettings = allCategorySettings.find(s => s.category === employee.employment_category) || {
             category: employee.employment_category,
             night_surcharge_start_time: '22:00:00',
+            night_surcharge_end_time: '06:00:00',
             night_surcharge_rate: 25,
-            sunday_surcharge_start_time: '00:00:00',
             sunday_surcharge_rate: 50,
-            holiday_surcharge_start_time: '00:00:00',
             holiday_surcharge_rate: 100
           };
 

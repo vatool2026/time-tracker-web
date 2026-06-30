@@ -55,7 +55,7 @@ export default function ThemeToggle() {
       aria-label="Farbschema wechseln"
     >
       {isDark ? (
-        <Sun size={20} className="text-gradient" style={{ transition: 'transform 0.5s ease' }} />
+        <Sun size={20} style={{ color: 'var(--warning)', transition: 'transform 0.5s ease' }} />
       ) : (
         <Moon size={20} style={{ color: 'var(--accent-secondary)', transition: 'transform 0.5s ease' }} />
       )}

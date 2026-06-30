@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { inviteEmployeeAction } from '@/app/actions';
 import { X } from 'lucide-react';
+import CustomSelect from './CustomSelect';
 
 interface InviteEmployeeModalProps {
   onClose: () => void;
@@ -12,6 +13,8 @@ interface InviteEmployeeModalProps {
 export default function InviteEmployeeModal({ onClose, onSuccess }: InviteEmployeeModalProps) {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [role, setRole] = useState('EMPLOYEE');
+  const [employmentCategory, setEmploymentCategory] = useState('FULLTIME');
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -108,20 +111,32 @@ export default function InviteEmployeeModal({ onClose, onSuccess }: InviteEmploy
           <div style={{ display: 'flex', gap: '1rem' }}>
             <div style={{ flex: 1 }}>
               <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Rolle</label>
-              <select name="role" className="input-field" required disabled={loading}>
-                <option value="EMPLOYEE">Mitarbeiter</option>
-                <option value="COMPANY_ADMIN">Admin</option>
-              </select>
+              <CustomSelect
+                name="role"
+                value={role}
+                onChange={setRole}
+                disabled={loading}
+                options={[
+                  { value: 'EMPLOYEE', label: 'Mitarbeiter' },
+                  { value: 'COMPANY_ADMIN', label: 'Admin' }
+                ]}
+              />
             </div>
             <div style={{ flex: 1 }}>
               <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Kategorie</label>
-              <select name="employmentCategory" className="input-field" required disabled={loading}>
-                <option value="FULLTIME">Vollzeit</option>
-                <option value="PARTTIME">Teilzeit</option>
-                <option value="MIDIJOB">Midijob</option>
-                <option value="MINIJOB">Minijob</option>
-                <option value="OTHER">Andere</option>
-              </select>
+              <CustomSelect
+                name="employmentCategory"
+                value={employmentCategory}
+                onChange={setEmploymentCategory}
+                disabled={loading}
+                options={[
+                  { value: 'FULLTIME', label: 'Vollzeit' },
+                  { value: 'PARTTIME', label: 'Teilzeit' },
+                  { value: 'MIDIJOB', label: 'Midijob' },
+                  { value: 'MINIJOB', label: 'Minijob' },
+                  { value: 'OTHER', label: 'Andere' }
+                ]}
+              />
             </div>
           </div>
 

@@ -28,7 +28,28 @@ function getLocalDateString(): string {
 }
 
 /**
- * Gets the current time in local HH:MM:SS format for Europe/Berlin.
+ * Rounds a time string to the nearest 15 minutes.
+ */
+function roundTimeTo15Min(timeStr: string): string {
+  if (!timeStr) return timeStr;
+  
+  let [hours, minutes] = timeStr.split(':').map(Number);
+  if (isNaN(hours) || isNaN(minutes)) return timeStr;
+  
+  const roundedMinutes = Math.round(minutes / 15) * 15;
+  
+  if (roundedMinutes === 60) {
+    minutes = 0;
+    hours = (hours + 1) % 24;
+  } else {
+    minutes = roundedMinutes;
+  }
+  
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
+}
+
+/**
+ * Gets the current time in local HH:MM:SS format for Europe/Berlin, rounded to nearest 15 mins.
  */
 function getLocalTimeString(): string {
   const formatter = new Intl.DateTimeFormat('en-US', {
@@ -41,8 +62,7 @@ function getLocalTimeString(): string {
   const parts = formatter.formatToParts(new Date());
   const hour = parts.find(p => p.type === 'hour')?.value;
   const minute = parts.find(p => p.type === 'minute')?.value;
-  const second = parts.find(p => p.type === 'second')?.value;
-  return `${hour?.padStart(2, '0')}:${minute?.padStart(2, '0')}:${second?.padStart(2, '0')}`;
+  return roundTimeTo15Min(`${hour}:${minute}`);
 }
 
 /**
@@ -153,11 +173,10 @@ export async function registerAction(formData: FormData): Promise<ActionResponse
     company_id: companyId,
     category: cat,
     night_surcharge_start_time: '22:00:00',
+    night_surcharge_end_time: '06:00:00',
     night_surcharge_rate: 25.0,
-    sunday_surcharge_start_time: '00:00:00',
     sunday_surcharge_rate: 50.0,
-    holiday_surcharge_start_time: '00:00:00',
-    holiday_surcharge_rate: 100.0,
+    holiday_surcharge_rate: 100.0
   }));
 
   const { error: surchargeError } = await supabase
@@ -333,49 +352,155 @@ export async function recordBreakAction(minutes: number): Promise<ActionResponse
 }
 
 /**
- * Creates an absence entry (sickness or vacation).
+ * Sets the absence code for an entire day
  */
-export async function createAbsenceAction(dateStr: string, code: 'U' | 'K', note: string = ''): Promise<ActionResponse> {
+export async function setDayAbsenceCodeAction(userId: string, dateStr: string, code: string | null, note?: string | null): Promise<ActionResponse> {
   const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, message: 'Nicht authentifiziert.' };
 
-  // Check if there is already an entry for this date
-  const { data: existing } = await supabase
-    .from('time_entries')
-    .select('id')
-    .eq('user_id', user.id)
-    .eq('entry_date', dateStr);
-
-  if (existing && existing.length > 0) {
-    // Delete existing entries for that day to overwrite it with the absence
-    const ids = existing.map(e => e.id);
-    const { error: deleteError } = await supabase
-      .from('time_entries')
-      .delete()
-      .in('id', ids);
-
-    if (deleteError) return { success: false, message: `Fehler beim Überschreiben des Tages: ${deleteError.message}` };
+  // Validate permission: can only edit own entries or must be admin
+  if (user.id !== userId) {
+    const { data: caller } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    if (!caller || (caller.role !== 'COMPANY_ADMIN' && caller.role !== 'ROOT')) {
+      return { success: false, message: 'Keine Berechtigung, Einträge anderer zu bearbeiten.' };
+    }
   }
 
-  // Insert absence entry: start and end time are 00:00:00 for full-day absence
-  const { error } = await supabase
+  // Get all entries for this date
+  const { data: existing } = await supabase
     .from('time_entries')
-    .insert({
-      user_id: user.id,
-      entry_date: dateStr,
-      start_time: '00:00:00',
-      end_time: '00:00:00',
-      break_minutes: 0,
-      absence_code: code,
-      note: note || (code === 'U' ? 'Urlaub' : 'Krankheit'),
-    });
+    .select('*')
+    .eq('user_id', userId)
+    .eq('entry_date', dateStr);
 
-  if (error) return { success: false, message: `Fehler beim Eintragen der Abwesenheit: ${error.message}` };
+  if (!code) {
+    // Clear code from day
+    if (existing && existing.length > 0) {
+      // Find dummy entries (00:00:00 - 00:00:00) and delete them
+      const dummyEntries = existing.filter(e => e.start_time === '00:00:00' && e.end_time === '00:00:00' && e.break_minutes === 0);
+      if (dummyEntries.length > 0) {
+        await supabase.from('time_entries').delete().in('id', dummyEntries.map(e => e.id));
+      }
+      
+      // Clear absence_code on the remaining entries
+      const remainingIds = existing.map(e => e.id).filter(id => !dummyEntries.some(d => d.id === id));
+      if (remainingIds.length > 0) {
+        await supabase.from('time_entries').update({ absence_code: null }).in('id', remainingIds);
+      }
+    }
+    revalidatePath('/dashboard');
+    return { success: true, message: 'Kürzel entfernt.' };
+  } else {
+    // Set code for day
+    if (existing && existing.length > 0) {
+      // Update all entries for this day with the new absence_code
+      const { error } = await supabase
+        .from('time_entries')
+        .update({ absence_code: code, note: note !== undefined ? note : undefined })
+        .in('id', existing.map(e => e.id));
+        
+      if (error) return { success: false, message: `Fehler: ${error.message}` };
+    } else {
+      // No entries exist, create a dummy entry to hold the code
+      const { error } = await supabase
+        .from('time_entries')
+        .insert({
+          user_id: userId,
+          entry_date: dateStr,
+          start_time: '00:00:00',
+          end_time: '00:00:00',
+          break_minutes: 0,
+          absence_code: code,
+          note: note || `Code: ${code}`
+        });
+        
+      if (error) return { success: false, message: `Fehler: ${error.message}` };
+    }
+    revalidatePath('/dashboard');
+    return { success: true, message: 'Kürzel erfolgreich gesetzt.' };
+  }
+}
+
+/**
+ * Admin action: saves an absence code
+ */
+export async function saveAbsenceCodeAction(
+  id: string | null,
+  category: string,
+  name: string,
+  code: string,
+  factor: number
+): Promise<ActionResponse> {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, message: 'Nicht authentifiziert.' };
+
+  const { data: callerProfile } = await supabase
+    .from('profiles')
+    .select('role, company_id')
+    .eq('id', user.id)
+    .single();
+
+  if (!callerProfile || (callerProfile.role !== 'COMPANY_ADMIN' && callerProfile.role !== 'ROOT')) {
+    return { success: false, message: 'Keine Administratorrechte.' };
+  }
+
+  if (id) {
+    const { error } = await supabase
+      .from('absence_codes')
+      .update({ name, code, factor })
+      .eq('id', id)
+      .eq('company_id', callerProfile.company_id);
+    if (error) return { success: false, message: error.message };
+  } else {
+    const { error } = await supabase
+      .from('absence_codes')
+      .insert({
+        company_id: callerProfile.company_id,
+        employment_category: category,
+        name,
+        code,
+        factor
+      });
+    if (error) return { success: false, message: error.message };
+  }
 
   revalidatePath('/dashboard');
-  return { success: true, message: 'Abwesenheit erfolgreich eingetragen.' };
+  return { success: true, message: 'Kürzel gespeichert.' };
+}
+
+/**
+ * Admin action: deletes an absence code
+ */
+export async function deleteAbsenceCodeAction(id: string): Promise<ActionResponse> {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, message: 'Nicht authentifiziert.' };
+
+  const { data: callerProfile } = await supabase
+    .from('profiles')
+    .select('role, company_id')
+    .eq('id', user.id)
+    .single();
+
+  if (!callerProfile || (callerProfile.role !== 'COMPANY_ADMIN' && callerProfile.role !== 'ROOT')) {
+    return { success: false, message: 'Keine Administratorrechte.' };
+  }
+
+  const { error } = await supabase
+    .from('absence_codes')
+    .delete()
+    .eq('id', id)
+    .eq('company_id', callerProfile.company_id);
+
+  if (error) return { success: false, message: error.message };
+
+  revalidatePath('/dashboard');
+  return { success: true, message: 'Kürzel gelöscht.' };
 }
 
 /**
@@ -396,7 +521,8 @@ export async function updateEmployeeSettingsAction(
     friday: number;
     saturday: number;
     sunday: number;
-  }
+  },
+  employeeNumber?: string | null
 ): Promise<ActionResponse> {
   const supabase = await createClient();
 
@@ -420,6 +546,7 @@ export async function updateEmployeeSettingsAction(
     .update({
       role,
       employment_category: employmentCategory,
+      employee_number: employeeNumber !== undefined ? employeeNumber : undefined,
     })
     .eq('id', employeeId)
     .eq('company_id', callerProfile.company_id); // Security: check same company
@@ -478,10 +605,9 @@ export async function updateEmployeeSettingsAction(
 export async function updateSurchargeSettingsAction(
   category: string,
   nightStart: string,
+  nightEnd: string,
   nightRate: number,
-  sundayStart: string,
   sundayRate: number,
-  holidayStart: string,
   holidayRate: number
 ): Promise<ActionResponse> {
   const supabase = await createClient();
@@ -505,10 +631,9 @@ export async function updateSurchargeSettingsAction(
     .from('category_settings')
     .update({
       night_surcharge_start_time: nightStart,
+      night_surcharge_end_time: nightEnd,
       night_surcharge_rate: nightRate,
-      sunday_surcharge_start_time: sundayStart,
       sunday_surcharge_rate: sundayRate,
-      holiday_surcharge_start_time: holidayStart,
       holiday_surcharge_rate: holidayRate,
     })
     .eq('company_id', callerProfile.company_id)
@@ -598,6 +723,130 @@ export async function deleteTimeEntryAction(entryId: string): Promise<ActionResp
 
   revalidatePath('/dashboard');
   return { success: true, message: 'Eintrag erfolgreich gelöscht.' };
+}
+
+/**
+ * Updates an existing time entry (e.g., manual correction by employee).
+ */
+export async function updateTimeEntryAction(
+  entryId: string,
+  startTime: string,
+  endTime: string,
+  breakMinutes: number,
+  note: string,
+  editReason: string
+): Promise<ActionResponse> {
+  if (!editReason || editReason.trim() === '') {
+    return { success: false, message: 'Ein Grund für die Bearbeitung muss zwingend angegeben werden.' };
+  }
+
+  const roundedStartTime = roundTimeTo15Min(startTime);
+  const roundedEndTime = endTime ? roundTimeTo15Min(endTime) : '';
+
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, message: 'Nicht authentifiziert.' };
+
+  // Verify ownership or admin rights
+  const { data: entry } = await supabase
+    .from('time_entries')
+    .select('user_id')
+    .eq('id', entryId)
+    .single();
+
+  if (!entry) return { success: false, message: 'Eintrag nicht gefunden.' };
+
+  if (entry.user_id !== user.id) {
+    const { data: callerProfile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (!callerProfile || (callerProfile.role !== 'COMPANY_ADMIN' && callerProfile.role !== 'ROOT')) {
+      return { success: false, message: 'Keine Berechtigung zum Bearbeiten dieses Eintrags.' };
+    }
+  }
+
+  const { error } = await supabase
+    .from('time_entries')
+    .update({
+      start_time: roundedStartTime,
+      end_time: roundedEndTime || null,
+      break_minutes: breakMinutes,
+      note: note || null,
+      edit_reason: editReason
+    })
+    .eq('id', entryId);
+
+  if (error) return { success: false, message: `Fehler beim Bearbeiten des Eintrags: ${error.message}` };
+
+  revalidatePath('/dashboard');
+  return { success: true, message: 'Eintrag erfolgreich bearbeitet.' };
+}
+
+/**
+ * Creates a retroactive or manual time entry for a specific day.
+ */
+export async function createManualTimeEntryAction(
+  targetUserId: string,
+  entryDate: string,
+  startTime: string,
+  endTime: string,
+  breakMinutes: number,
+  note: string,
+  editReason: string
+): Promise<ActionResponse> {
+  // Note: editReason is optional for new manual entries, as per user request.
+
+  const roundedStartTime = roundTimeTo15Min(startTime);
+  const roundedEndTime = endTime ? roundTimeTo15Min(endTime) : '';
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, message: 'Nicht authentifiziert.' };
+
+  // Check permissions: user can create for themselves. Admins can create for others in their company.
+  if (targetUserId !== user.id) {
+    const { data: callerProfile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (!callerProfile || (callerProfile.role !== 'COMPANY_ADMIN' && callerProfile.role !== 'ROOT')) {
+      return { success: false, message: 'Keine Berechtigung zum Erfassen für andere Mitarbeiter.' };
+    }
+  }
+
+  // Check if an entry already exists for this date.
+  const { data: existing } = await supabase
+    .from('time_entries')
+    .select('id')
+    .eq('user_id', targetUserId)
+    .eq('entry_date', entryDate);
+
+  if (existing && existing.length > 0) {
+    return { success: false, message: 'Für diesen Tag existiert bereits ein Eintrag. Bitte diesen bearbeiten.' };
+  }
+
+  const { error } = await supabase
+    .from('time_entries')
+    .insert({
+      user_id: targetUserId,
+      entry_date: entryDate,
+      start_time: roundedStartTime,
+      end_time: roundedEndTime || null,
+      break_minutes: breakMinutes,
+      note: note || null,
+      edit_reason: editReason
+    });
+
+  if (error) return { success: false, message: `Fehler beim Erstellen des Eintrags: ${error.message}` };
+
+  revalidatePath('/dashboard');
+  return { success: true, message: 'Eintrag erfolgreich nachgetragen.' };
 }
 
 /**
@@ -718,4 +967,213 @@ export async function setupPasswordAction(formData: FormData): Promise<ActionRes
 
   revalidatePath('/dashboard');
   return { success: true, message: 'Passwort erfolgreich gesetzt.' };
+}
+
+/**
+ * Admin action: updates company logo URL.
+ */
+export async function updateCompanyLogoAction(logoUrl: string | null): Promise<ActionResponse> {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, message: 'Nicht authentifiziert.' };
+
+  // Check admin rights
+  const { data: callerProfile } = await supabase
+    .from('profiles')
+    .select('role, company_id')
+    .eq('id', user.id)
+    .single();
+
+  if (!callerProfile || (callerProfile.role !== 'COMPANY_ADMIN' && callerProfile.role !== 'ROOT')) {
+    return { success: false, message: 'Keine Administratorrechte.' };
+  }
+
+  const { error } = await supabase
+    .from('companies')
+    .update({ logo_url: logoUrl })
+    .eq('id', callerProfile.company_id);
+
+  if (error) return { success: false, message: `Fehler beim Aktualisieren des Logos: ${error.message}` };
+
+  revalidatePath('/dashboard');
+  return { success: true, message: 'Firmenlogo erfolgreich aktualisiert.' };
+}
+
+export type ExcelImportEntry = {
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  breakMinutes: number;
+  absenceCode: string | null;
+  note: string | null;
+};
+
+export async function importExcelTimeEntriesAction(userId: string, entries: ExcelImportEntry[]): Promise<ActionResponse> {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, message: 'Nicht authentifiziert.' };
+
+  // Check admin rights
+  const { data: callerProfile } = await supabase
+    .from('profiles')
+    .select('role, company_id')
+    .eq('id', user.id)
+    .single();
+
+  if (!callerProfile || (callerProfile.role !== 'COMPANY_ADMIN' && callerProfile.role !== 'ROOT')) {
+    return { success: false, message: 'Keine Administratorrechte.' };
+  }
+
+  // Ensure target user belongs to same company
+  const { data: targetProfile } = await supabase
+    .from('profiles')
+    .select('company_id')
+    .eq('id', userId)
+    .single();
+
+  if (!targetProfile || targetProfile.company_id !== callerProfile.company_id) {
+    return { success: false, message: 'Zielbenutzer gehört nicht zum eigenen Unternehmen.' };
+  }
+
+  // Prepare insert payload
+  const insertPayload = entries.map(e => ({
+    user_id: userId,
+    entry_date: e.date,
+    start_time: e.startTime || '00:00:00', // For absence only, time can be 00:00
+    end_time: e.endTime || (e.startTime ? e.startTime : '00:00:00'),
+    break_minutes: e.breakMinutes,
+    absence_code: e.absenceCode,
+    note: e.note,
+  }));
+
+  if (insertPayload.length === 0) {
+    return { success: false, message: 'Keine gültigen Einträge zum Importieren gefunden.' };
+  }
+
+  // Determine date range to delete existing entries
+  const minDate = entries.reduce((min, e) => e.date < min ? e.date : min, entries[0].date);
+  const maxDate = entries.reduce((max, e) => e.date > max ? e.date : max, entries[0].date);
+
+  // Delete existing entries for this user in this date range to prevent duplicates
+  // This assumes the import is a full replacement for the month
+  const { error: deleteError } = await supabase
+    .from('time_entries')
+    .delete()
+    .eq('user_id', userId)
+    .gte('entry_date', minDate)
+    .lte('entry_date', maxDate);
+
+  if (deleteError) {
+    return { success: false, message: `Fehler beim Löschen alter Einträge: ${deleteError.message}` };
+  }
+
+  // Insert new entries
+  const { error: insertError } = await supabase
+    .from('time_entries')
+    .insert(insertPayload);
+
+  if (insertError) {
+    return { success: false, message: `Fehler beim Importieren der Zeiterfassungen: ${insertError.message}` };
+  }
+
+  revalidatePath('/dashboard');
+  return { success: true, message: `${entries.length} Einträge erfolgreich importiert.` };
+}
+
+/**
+ * Admin action: updates carryover settings for an employee for the current year.
+ */
+export async function updateCarryOverAction(
+  employeeId: string,
+  carryOverHours: number,
+  carryOverVacationDays: number
+): Promise<ActionResponse> {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, message: 'Nicht authentifiziert.' };
+
+  const { data: callerProfile } = await supabase
+    .from('profiles')
+    .select('role, company_id')
+    .eq('id', user.id)
+    .single();
+
+  if (!callerProfile || (callerProfile.role !== 'COMPANY_ADMIN' && callerProfile.role !== 'ROOT')) {
+    return { success: false, message: 'Keine Administratorrechte.' };
+  }
+
+  const currentYear = new Date().getFullYear();
+  
+  const { data: existingSettings } = await supabase
+    .from('timesheet_settings')
+    .select('id')
+    .eq('user_id', employeeId)
+    .eq('year', currentYear)
+    .single();
+
+  if (existingSettings) {
+    const { error } = await supabase
+      .from('timesheet_settings')
+      .update({
+        carry_over_hours: carryOverHours,
+        carry_over_vacation_days: carryOverVacationDays
+      })
+      .eq('id', existingSettings.id);
+
+    if (error) return { success: false, message: error.message };
+  } else {
+    // If no settings exist yet, insert with defaults
+    const { error } = await supabase
+      .from('timesheet_settings')
+      .insert({
+        user_id: employeeId,
+        year: currentYear,
+        carry_over_hours: carryOverHours,
+        carry_over_vacation_days: carryOverVacationDays,
+        target_hours_monday: 8,
+        target_hours_tuesday: 8,
+        target_hours_wednesday: 8,
+        target_hours_thursday: 8,
+        target_hours_friday: 8,
+        target_hours_saturday: 0,
+        target_hours_sunday: 0,
+        vacation_days_entitlement: 30
+      });
+      
+    if (error) return { success: false, message: error.message };
+  }
+
+  revalidatePath('/dashboard');
+  return { success: true, message: 'Übertrag erfolgreich gespeichert.' };
+}
+
+/**
+ * Updates the authenticated user's password
+ */
+export async function updateUserPasswordAction(password: string): Promise<ActionResponse> {
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({ password });
+  
+  if (error) {
+    return { success: false, message: formatErrorMessage(error, 'Fehler beim Ändern des Passworts') };
+  }
+  
+  return { success: true, message: 'Passwort erfolgreich geändert.' };
+}
+
+/**
+ * Updates the authenticated user's email address
+ */
+export async function updateUserEmailAction(email: string): Promise<ActionResponse> {
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({ email });
+  
+  if (error) {
+    return { success: false, message: formatErrorMessage(error, 'Fehler beim Ändern der E-Mail-Adresse') };
+  }
+  
+  return { success: true, message: 'E-Mail-Adresse erfolgreich geändert. Möglicherweise müssen Sie die neue E-Mail bestätigen.' };
 }

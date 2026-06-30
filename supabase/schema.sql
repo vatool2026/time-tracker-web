@@ -18,6 +18,10 @@ CREATE TABLE public.companies (
   name TEXT NOT NULL,
   billing_period_type TEXT DEFAULT 'CALENDAR_MONTH', -- E.g. 'CALENDAR_MONTH', 'CUSTOM_DATE'
   billing_period_start_day INTEGER DEFAULT 1,
+  logo_url TEXT,
+  feature_urlaub BOOLEAN DEFAULT false,
+  feature_abwesenheit BOOLEAN DEFAULT false,
+  feature_sonstiges BOOLEAN DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
@@ -30,6 +34,7 @@ CREATE TABLE public.profiles (
   last_name TEXT NOT NULL,
   role user_role DEFAULT 'EMPLOYEE',
   employment_category employment_category DEFAULT 'FULLTIME',
+  employee_number TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
@@ -39,11 +44,10 @@ CREATE TABLE public.category_settings (
   company_id UUID NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
   category employment_category NOT NULL,
   night_surcharge_start_time TIME DEFAULT '22:00:00',
+  night_surcharge_end_time TIME DEFAULT '06:00:00',
   night_surcharge_rate DECIMAL DEFAULT 25.0, -- Percentage
-  sunday_surcharge_start_time TIME DEFAULT '00:00:00',
-  sunday_surcharge_rate DECIMAL DEFAULT 50.0,
-  holiday_surcharge_start_time TIME DEFAULT '00:00:00',
-  holiday_surcharge_rate DECIMAL DEFAULT 100.0,
+  sunday_surcharge_rate DECIMAL DEFAULT 50.0, -- Percentage
+  holiday_surcharge_rate DECIMAL DEFAULT 100.0, -- Percentage
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
   UNIQUE(company_id, category)
 );
@@ -77,6 +81,7 @@ CREATE TABLE public.time_entries (
   break_minutes INTEGER DEFAULT 0,
   absence_code TEXT, -- e.g., 'U' (Urlaub), 'K' (Krank)
   note TEXT,
+  edit_reason TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
@@ -106,27 +111,29 @@ $$ LANGUAGE plpgsql;
 
 -- 1. Companies Policies
 CREATE POLICY "Allow public insert on companies" ON public.companies FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow users to view own company" ON public.companies FOR SELECT TO authenticated USING (id = public.get_user_company_id());
-CREATE POLICY "Allow admin to update own company" ON public.companies FOR UPDATE TO authenticated USING (public.get_user_role() = 'COMPANY_ADMIN' AND id = public.get_user_company_id());
+CREATE POLICY "Allow users to view own company" ON public.companies FOR SELECT TO authenticated USING (public.get_user_role() = 'ROOT' OR id = public.get_user_company_id());
+CREATE POLICY "Allow admin to update own company" ON public.companies FOR UPDATE TO authenticated USING (public.get_user_role() = 'ROOT' OR (public.get_user_role() = 'COMPANY_ADMIN' AND id = public.get_user_company_id()));
+CREATE POLICY "Allow root to delete companies" ON public.companies FOR DELETE TO authenticated USING (public.get_user_role() = 'ROOT');
 
 -- 2. Profiles Policies
 CREATE POLICY "Allow public insert on profiles" ON public.profiles FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow users to view profiles in same company" ON public.profiles FOR SELECT TO authenticated USING (company_id = public.get_user_company_id());
-CREATE POLICY "Allow users to update own profile or admin to update company profiles" ON public.profiles FOR UPDATE TO authenticated USING (id = auth.uid() OR (public.get_user_role() = 'COMPANY_ADMIN' AND company_id = public.get_user_company_id()));
+CREATE POLICY "Allow users to view profiles in same company" ON public.profiles FOR SELECT TO authenticated USING (public.get_user_role() = 'ROOT' OR company_id = public.get_user_company_id());
+CREATE POLICY "Allow users to update own profile or admin to update company profiles" ON public.profiles FOR UPDATE TO authenticated USING (public.get_user_role() = 'ROOT' OR id = auth.uid() OR (public.get_user_role() = 'COMPANY_ADMIN' AND company_id = public.get_user_company_id()));
+CREATE POLICY "Allow root to delete profiles" ON public.profiles FOR DELETE TO authenticated USING (public.get_user_role() = 'ROOT');
 
 -- 3. Category Settings Policies
-CREATE POLICY "Allow users to view category settings" ON public.category_settings FOR SELECT TO authenticated USING (company_id = public.get_user_company_id());
-CREATE POLICY "Allow admin to update category settings" ON public.category_settings FOR UPDATE TO authenticated USING (public.get_user_role() = 'COMPANY_ADMIN' AND company_id = public.get_user_company_id());
-CREATE POLICY "Allow admin to delete category settings" ON public.category_settings FOR DELETE TO authenticated USING (public.get_user_role() = 'COMPANY_ADMIN' AND company_id = public.get_user_company_id());
+CREATE POLICY "Allow users to view category settings" ON public.category_settings FOR SELECT TO authenticated USING (public.get_user_role() = 'ROOT' OR company_id = public.get_user_company_id());
+CREATE POLICY "Allow admin to update category settings" ON public.category_settings FOR UPDATE TO authenticated USING (public.get_user_role() = 'ROOT' OR (public.get_user_role() = 'COMPANY_ADMIN' AND company_id = public.get_user_company_id()));
+CREATE POLICY "Allow admin to delete category settings" ON public.category_settings FOR DELETE TO authenticated USING (public.get_user_role() = 'ROOT' OR (public.get_user_role() = 'COMPANY_ADMIN' AND company_id = public.get_user_company_id()));
 CREATE POLICY "Allow public insert on category_settings" ON public.category_settings FOR INSERT WITH CHECK (true);
 
 -- 4. Timesheet Settings Policies
-CREATE POLICY "Allow users to view own timesheet settings or admin to view company settings" ON public.timesheet_settings FOR SELECT TO authenticated USING (user_id = auth.uid() OR (public.get_user_role() = 'COMPANY_ADMIN' AND (SELECT company_id FROM public.profiles WHERE id = user_id) = public.get_user_company_id()));
+CREATE POLICY "Allow users to view own timesheet settings or admin to view company settings" ON public.timesheet_settings FOR SELECT TO authenticated USING (public.get_user_role() = 'ROOT' OR user_id = auth.uid() OR (public.get_user_role() = 'COMPANY_ADMIN' AND (SELECT company_id FROM public.profiles WHERE id = user_id) = public.get_user_company_id()));
 CREATE POLICY "Allow public insert on timesheet_settings" ON public.timesheet_settings FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow users or admin to update timesheet settings" ON public.timesheet_settings FOR UPDATE TO authenticated USING (user_id = auth.uid() OR (public.get_user_role() = 'COMPANY_ADMIN' AND (SELECT company_id FROM public.profiles WHERE id = user_id) = public.get_user_company_id()));
-CREATE POLICY "Allow admin to delete timesheet settings" ON public.timesheet_settings FOR DELETE TO authenticated USING (public.get_user_role() = 'COMPANY_ADMIN' AND (SELECT company_id FROM public.profiles WHERE id = user_id) = public.get_user_company_id());
+CREATE POLICY "Allow users or admin to update timesheet settings" ON public.timesheet_settings FOR UPDATE TO authenticated USING (public.get_user_role() = 'ROOT' OR user_id = auth.uid() OR (public.get_user_role() = 'COMPANY_ADMIN' AND (SELECT company_id FROM public.profiles WHERE id = user_id) = public.get_user_company_id()));
+CREATE POLICY "Allow admin to delete timesheet settings" ON public.timesheet_settings FOR DELETE TO authenticated USING (public.get_user_role() = 'ROOT' OR (public.get_user_role() = 'COMPANY_ADMIN' AND (SELECT company_id FROM public.profiles WHERE id = user_id) = public.get_user_company_id()));
 
 -- 5. Time Entries Policies
-CREATE POLICY "Allow users to view own time entries or admin to view company entries" ON public.time_entries FOR SELECT TO authenticated USING (user_id = auth.uid() OR (public.get_user_role() = 'COMPANY_ADMIN' AND (SELECT company_id FROM public.profiles WHERE id = user_id) = public.get_user_company_id()));
-CREATE POLICY "Allow users to insert own time entries" ON public.time_entries FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
-CREATE POLICY "Allow users or admins to update or delete time entries" ON public.time_entries FOR ALL TO authenticated USING (user_id = auth.uid() OR (public.get_user_role() = 'COMPANY_ADMIN' AND (SELECT company_id FROM public.profiles WHERE id = user_id) = public.get_user_company_id()));
+CREATE POLICY "Allow users to view own time entries or admin to view company entries" ON public.time_entries FOR SELECT TO authenticated USING (public.get_user_role() = 'ROOT' OR user_id = auth.uid() OR (public.get_user_role() = 'COMPANY_ADMIN' AND (SELECT company_id FROM public.profiles WHERE id = user_id) = public.get_user_company_id()));
+CREATE POLICY "Allow users to insert own time entries" ON public.time_entries FOR INSERT TO authenticated WITH CHECK (public.get_user_role() = 'ROOT' OR user_id = auth.uid());
+CREATE POLICY "Allow users or admins to update or delete time entries" ON public.time_entries FOR ALL TO authenticated USING (public.get_user_role() = 'ROOT' OR user_id = auth.uid() OR (public.get_user_role() = 'COMPANY_ADMIN' AND (SELECT company_id FROM public.profiles WHERE id = user_id) = public.get_user_company_id()));
