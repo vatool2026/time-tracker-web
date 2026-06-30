@@ -128,6 +128,7 @@ export default function DashboardContainer({
   const [activeTab, setActiveTab] = useState<'employee' | 'admin'>(isAdmin ? 'admin' : 'employee');
   const [adminSubTab, setAdminSubTab] = useState<'overview' | 'employees' | 'surcharges' | 'absences' | 'company' | 'carryover' | 'import' | 'reports' | 'compliance' | 'settings'>('overview');
   const [employeeSubTab, setEmployeeSubTab] = useState<'zeiterfassung' | 'stundenzettel' | 'urlaub' | 'statistik' | 'sonstiges' | 'einstellungen'>('zeiterfassung');
+  const [adminEmployeeSubView, setAdminEmployeeSubView] = useState<'list' | 'import' | 'carryover'>('list');
   // Modals
   const [editingEmployee, setEditingEmployee] = useState<Profile | null>(null);
   const [editingAbsenceCode, setEditingAbsenceCode] = useState<AbsenceCode | null>(null);
@@ -138,6 +139,13 @@ export default function DashboardContainer({
   const [reportEmployeeId, setReportEmployeeId] = useState<string>('');
   const [reportStartDate, setReportStartDate] = useState<string>('');
   const [reportEndDate, setReportEndDate] = useState<string>('');
+  
+  // Aggregated Report Filters
+  const [reportAggPeriod, setReportAggPeriod] = useState<'YTD' | 'CURRENT' | 'SPECIFIC'>('YTD');
+  const [reportAggSpecificMonth, setReportAggSpecificMonth] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
   
   // Settings forms
   const [companyName, setCompanyName] = useState<string>(profile.companies?.name || '');
@@ -247,14 +255,34 @@ export default function DashboardContainer({
 
     const now = new Date();
     const year = now.getFullYear();
-    const month = now.getMonth();
+    const currentMonth = now.getMonth();
     
-    // Days in current month
+    // Days array based on selected period
     const days: Date[] = [];
-    const date = new Date(year, month, 1);
-    while (date.getMonth() === month) {
-      days.push(new Date(date));
-      date.setDate(date.getDate() + 1);
+    
+    if (reportAggPeriod === 'CURRENT') {
+      const date = new Date(year, currentMonth, 1);
+      while (date.getMonth() === currentMonth) {
+        days.push(new Date(date));
+        date.setDate(date.getDate() + 1);
+      }
+    } else if (reportAggPeriod === 'SPECIFIC') {
+      const [sy, sm] = reportAggSpecificMonth.split('-').map(Number);
+      const specificYear = sy || year;
+      const specificMonth = (sm || currentMonth + 1) - 1;
+      const date = new Date(specificYear, specificMonth, 1);
+      while (date.getMonth() === specificMonth) {
+        days.push(new Date(date));
+        date.setDate(date.getDate() + 1);
+      }
+    } else {
+      // YTD: Jan 1st to end of current month
+      const date = new Date(year, 0, 1);
+      const endMonth = currentMonth;
+      while (date.getFullYear() === year && date.getMonth() <= endMonth) {
+        days.push(new Date(date));
+        date.setDate(date.getDate() + 1);
+      }
     }
 
     return employees.map(emp => {
@@ -512,32 +540,6 @@ export default function DashboardContainer({
     doc.save(`Stundenbericht_${emp.first_name}_${emp.last_name}_${formatDate(reportStartDate)}_bis_${formatDate(reportEndDate)}.pdf`);
   };
 
-  // CSV Exporter
-  const handleCSVExport = () => {
-    const reportData = getEmployeeReportData();
-    if (reportData.length === 0) return;
-
-    let csvContent = "\uFEFF"; // UTF-8 BOM
-    csvContent += "Mitarbeiter;E-Mail;Beschäftigung;Soll-Stunden;Ist-Stunden;Überstunden;Nachtstunden;Sonntagsstunden;Feiertagsstunden;Urlaubstage;Krankheitstage\n";
-
-    reportData.forEach(r => {
-      csvContent += `${r.name};${r.email};${r.category};${r.targetHours.toFixed(1)};${r.workedHours.toFixed(2)};${r.overtime.toFixed(2)};${r.nightHours.toFixed(1)};${r.sundayHours.toFixed(1)};${r.holidayHours.toFixed(1)};${r.vacationDays};${r.sickDays}\n`;
-    });
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    
-    const monthStr = String(new Date().getMonth() + 1).padStart(2, '0');
-    const yearStr = new Date().getFullYear();
-    
-    link.setAttribute("download", `zeiterfassung_bericht_${yearStr}_${monthStr}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
 
   return (
     <div style={{ position: 'relative', zIndex: 10, minHeight: '100vh', paddingBottom: '4rem' }}>
@@ -597,12 +599,30 @@ export default function DashboardContainer({
           gap: '1rem', 
           marginLeft: 'auto' 
         }}>
-          <div className="user-details">
-            <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>{profile.first_name} {profile.last_name}</span>
+          <div className="user-details" style={{ textAlign: 'right' }}>
+            <span style={{ fontSize: '0.9rem', fontWeight: 600, display: 'block' }}>{profile.first_name} {profile.last_name}</span>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
               {profile.role === 'COMPANY_ADMIN' ? 'Admin' : (profile.role === 'ROOT' ? 'Inhaber' : 'Mitarbeiter')} ({getEmploymentCategoryLabel(profile.employment_category)})
             </span>
           </div>
+
+          <button 
+            onClick={() => activeTab === 'admin' ? setAdminSubTab('settings') : setEmployeeSubTab('einstellungen')}
+            style={{ 
+              background: 'none', 
+              border: 'none', 
+              color: (activeTab === 'admin' && adminSubTab === 'settings') || (activeTab === 'employee' && employeeSubTab === 'einstellungen') ? 'var(--accent-primary)' : 'var(--text-secondary)', 
+              cursor: 'pointer', 
+              padding: '0.5rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              transition: 'color 0.2s'
+            }}
+            title="Einstellungen"
+          >
+            <Settings size={20} />
+          </button>
 
           {profile.role === 'ROOT' && (
             <button onClick={() => window.location.href = '/root'} className="btn btn-primary glass" style={{ padding: '0.5rem 1rem' }} title="System-Übersicht">
@@ -663,8 +683,7 @@ export default function DashboardContainer({
                 { id: 'stundenzettel', label: 'Stundenzettel', icon: <Table size={16} /> },
                 profile.companies?.feature_urlaub ? { id: 'urlaub', label: 'Urlaub', icon: <Calendar size={16} /> } : null,
                 { id: 'statistik', label: 'Statistik', icon: <BarChart size={16} /> },
-                profile.companies?.feature_sonstiges ? { id: 'sonstiges', label: 'Sonstiges', icon: <MoreHorizontal size={16} /> } : null,
-                { id: 'einstellungen', label: 'Einstellungen', icon: <Settings size={16} /> }
+                profile.companies?.feature_sonstiges ? { id: 'sonstiges', label: 'Sonstiges', icon: <MoreHorizontal size={16} /> } : null
               ].filter(Boolean).map((tab: any) => (
                 <button
                   key={tab.id}
@@ -827,14 +846,11 @@ export default function DashboardContainer({
             {[
               { id: 'overview', label: 'Übersicht', icon: <LayoutDashboard size={16} /> },
               { id: 'employees', label: 'Mitarbeiter verwalten', icon: <Users size={16} /> },
-              { id: 'surcharges', label: 'Zuschlagsregeln', icon: <Shield size={16} /> },
-              { id: 'absences', label: 'Kürzel (Fehlgründe)', icon: <CalendarDays size={16} /> },
-              { id: 'company', label: 'Firmendetails', icon: <Building size={16} /> },
-              { id: 'carryover', label: 'Start-Überträge', icon: <Clock size={16} /> },
-              { id: 'import', label: 'Daten-Import', icon: <Upload size={16} /> },
-              { id: 'reports', label: 'Monatsberichte & Export', icon: <FileText size={16} /> },
               { id: 'compliance', label: 'Arbeitszeitschutz', icon: <ShieldAlert size={16} /> },
-              { id: 'settings', label: 'Einstellungen', icon: <Settings size={16} /> }
+              { id: 'surcharges', label: 'Zuschlagsregeln', icon: <Shield size={16} /> },
+              { id: 'absences', label: 'Kürzel', icon: <CalendarDays size={16} /> },
+              { id: 'reports', label: 'Monatsberichte & Export', icon: <FileText size={16} /> },
+              { id: 'company', label: 'Firmendetails', icon: <Building size={16} /> }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -869,19 +885,74 @@ export default function DashboardContainer({
             />
           )}
 
-          {/* Sub-Tab content: Carryover */}
-          {adminSubTab === 'carryover' && (
-            <CarryoverAdminTab
-              employees={employees}
-              allTimesheetSettings={allTimesheetSettings}
-              feature_urlaub={profile.companies?.feature_urlaub}
-            />
-          )}
-
           {/* Sub-Tab content: Employees */}
           {adminSubTab === 'employees' && employees && (
             <div>
-              <div className="flex-between" style={{ marginBottom: '1.5rem' }}>
+              <div style={{ 
+                display: 'inline-flex', 
+                gap: '0.25rem', 
+                background: 'rgba(0, 0, 0, 0.2)', 
+                padding: '0.35rem', 
+                borderRadius: 'var(--border-radius-md)', 
+                marginBottom: '2rem',
+                border: '1px solid rgba(255, 255, 255, 0.05)'
+              }}>
+                <button 
+                  onClick={() => setAdminEmployeeSubView('list')}
+                  style={{ 
+                    background: adminEmployeeSubView === 'list' ? 'var(--accent-primary)' : 'transparent', 
+                    color: adminEmployeeSubView === 'list' ? '#ffffff' : 'var(--text-secondary)', 
+                    border: 'none',
+                    fontWeight: 600, 
+                    cursor: 'pointer', 
+                    padding: '0.5rem 1.25rem', 
+                    fontSize: '0.9rem',
+                    borderRadius: 'var(--border-radius-sm)',
+                    transition: 'all 0.2s ease',
+                    boxShadow: adminEmployeeSubView === 'list' ? '0 4px 12px rgba(59, 130, 246, 0.3)' : 'none'
+                  }}
+                >
+                  Mitarbeiterliste
+                </button>
+                <button 
+                  onClick={() => setAdminEmployeeSubView('import')}
+                  style={{ 
+                    background: adminEmployeeSubView === 'import' ? 'var(--accent-primary)' : 'transparent', 
+                    color: adminEmployeeSubView === 'import' ? '#ffffff' : 'var(--text-secondary)', 
+                    border: 'none',
+                    fontWeight: 600, 
+                    cursor: 'pointer', 
+                    padding: '0.5rem 1.25rem', 
+                    fontSize: '0.9rem',
+                    borderRadius: 'var(--border-radius-sm)',
+                    transition: 'all 0.2s ease',
+                    boxShadow: adminEmployeeSubView === 'import' ? '0 4px 12px rgba(59, 130, 246, 0.3)' : 'none'
+                  }}
+                >
+                  Daten-Import
+                </button>
+                <button 
+                  onClick={() => setAdminEmployeeSubView('carryover')}
+                  style={{ 
+                    background: adminEmployeeSubView === 'carryover' ? 'var(--accent-primary)' : 'transparent', 
+                    color: adminEmployeeSubView === 'carryover' ? '#ffffff' : 'var(--text-secondary)', 
+                    border: 'none',
+                    fontWeight: 600, 
+                    cursor: 'pointer', 
+                    padding: '0.5rem 1.25rem', 
+                    fontSize: '0.9rem',
+                    borderRadius: 'var(--border-radius-sm)',
+                    transition: 'all 0.2s ease',
+                    boxShadow: adminEmployeeSubView === 'carryover' ? '0 4px 12px rgba(59, 130, 246, 0.3)' : 'none'
+                  }}
+                >
+                  Start-Überträge
+                </button>
+              </div>
+
+              {adminEmployeeSubView === 'list' && (
+                <>
+                  <div className="flex-between" style={{ marginBottom: '1.5rem' }}>
                 <h3 style={{ fontSize: '1.25rem', margin: 0 }}>Mitarbeiter</h3>
                 <button onClick={() => setIsInviteModalOpen(true)} className="btn btn-primary">
                   <PlusCircle size={16} /> Mitarbeiter einladen
@@ -943,6 +1014,22 @@ export default function DashboardContainer({
                   </tbody>
                 </table>
               </div>
+                </>
+              )}
+
+              {adminEmployeeSubView === 'import' && (
+                <div style={{ maxWidth: '600px' }}>
+                  <ImportTimeEntries employees={employees} />
+                </div>
+              )}
+
+              {adminEmployeeSubView === 'carryover' && (
+                <CarryoverAdminTab
+                  employees={employees}
+                  allTimesheetSettings={allTimesheetSettings}
+                  feature_urlaub={profile.companies?.feature_urlaub}
+                />
+              )}
             </div>
           )}
 
@@ -1124,27 +1211,54 @@ export default function DashboardContainer({
             </div>
           )}
 
-          {/* Sub-Tab content: Import */}
-          {adminSubTab === 'import' && (
-            <div style={{ maxWidth: '600px' }}>
-              <ImportTimeEntries employees={employees} />
-            </div>
-          )}
-
           {/* Sub-Tab content: Reports & Exports */}
           {adminSubTab === 'reports' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
               
               {/* Aggregated Report */}
               <div>
-                <div className="flex-between" style={{ marginBottom: '1.5rem' }}>
-                  <div>
-                    <h3 style={{ fontSize: '1.25rem' }}>Monatsbericht aller Mitarbeiter</h3>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Berichtszeitraum: Aktueller Monat</span>
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <h3 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>Mitarbeiterbericht</h3>
+                  
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <button 
+                      onClick={() => setReportAggPeriod('YTD')}
+                      className={`btn ${reportAggPeriod === 'YTD' ? 'btn-primary' : 'btn-secondary glass'}`}
+                      style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
+                    >
+                      Jahresanfang bis aktueller Monat
+                    </button>
+                    <button 
+                      onClick={() => setReportAggPeriod('CURRENT')}
+                      className={`btn ${reportAggPeriod === 'CURRENT' ? 'btn-primary' : 'btn-secondary glass'}`}
+                      style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
+                    >
+                      Nur aktueller Monat
+                    </button>
+                    <input 
+                      type="month"
+                      value={reportAggSpecificMonth}
+                      onChange={(e) => {
+                        setReportAggSpecificMonth(e.target.value);
+                        setReportAggPeriod('SPECIFIC');
+                      }}
+                      onClick={() => setReportAggPeriod('SPECIFIC')}
+                      style={{ 
+                        padding: '0.35rem 0.5rem', 
+                        fontSize: '0.85rem', 
+                        height: 'auto', 
+                        minWidth: '150px',
+                        border: reportAggPeriod === 'SPECIFIC' ? '1px solid var(--accent-primary)' : '1px solid rgba(255, 255, 255, 0.1)',
+                        background: reportAggPeriod === 'SPECIFIC' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(0, 0, 0, 0.2)',
+                        color: 'var(--text-primary)',
+                        borderRadius: 'var(--border-radius-sm)',
+                        cursor: 'pointer',
+                        outline: 'none',
+                        boxShadow: reportAggPeriod === 'SPECIFIC' ? '0 0 0 2px rgba(59, 130, 246, 0.2)' : 'none',
+                        transition: 'all 0.2s ease'
+                      }}
+                    />
                   </div>
-                  <button onClick={handleCSVExport} className="btn btn-primary">
-                    <Download size={16} /> Als CSV exportieren
-                  </button>
                 </div>
 
                 <div style={{ overflowX: 'auto' }}>
@@ -1210,6 +1324,7 @@ export default function DashboardContainer({
                       <CustomSelect
                         value={reportEmployeeId}
                         onChange={setReportEmployeeId}
+                        menuPlacement="top"
                         options={[
                           { value: '', label: '-- Bitte wählen --' },
                           ...(employees?.map(emp => ({ value: emp.id, label: `${emp.first_name} ${emp.last_name}` })) || [])
@@ -1501,13 +1616,11 @@ export default function DashboardContainer({
             [
               { id: 'overview', label: 'Übersicht', icon: <LayoutDashboard size={20} /> },
               { id: 'employees', label: 'Mitarbeiter', icon: <Users size={20} /> },
+              { id: 'compliance', label: 'ArbZG', icon: <ShieldAlert size={20} /> },
               { id: 'surcharges', label: 'Zuschläge', icon: <Shield size={20} /> },
               { id: 'absences', label: 'Kürzel', icon: <CalendarDays size={20} /> },
-              { id: 'company', label: 'Firma', icon: <Building size={20} /> },
-              { id: 'carryover', label: 'Überträge', icon: <Clock size={20} /> },
-              { id: 'import', label: 'Import', icon: <Upload size={20} /> },
               { id: 'reports', label: 'Berichte', icon: <FileText size={20} /> },
-              { id: 'compliance', label: 'ArbZG', icon: <ShieldAlert size={20} /> },
+              { id: 'company', label: 'Firma', icon: <Building size={20} /> },
               { id: 'settings', label: 'Einstellungen', icon: <Settings size={20} /> }
             ].map((tab: any) => (
               <button

@@ -9,9 +9,10 @@ interface CustomSelectProps {
   style?: React.CSSProperties;
   disabled?: boolean;
   name?: string;
+  menuPlacement?: 'bottom' | 'top';
 }
 
-export default function CustomSelect({ value, onChange, options, className = '', style = {}, disabled = false, name }: CustomSelectProps) {
+export default function CustomSelect({ value, onChange, options, className = '', style = {}, disabled = false, name, menuPlacement = 'bottom' }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -59,7 +60,7 @@ export default function CustomSelect({ value, onChange, options, className = '',
       {isOpen && (
         <div className="glass-dropdown" style={{
           position: 'absolute',
-          top: 'calc(100% + 0.25rem)',
+          ...(menuPlacement === 'top' ? { bottom: 'calc(100% + 0.25rem)' } : { top: 'calc(100% + 0.25rem)' }),
           left: 0,
           width: '100%',
           maxHeight: '250px',
@@ -68,7 +69,8 @@ export default function CustomSelect({ value, onChange, options, className = '',
           display: 'flex',
           flexDirection: 'column',
           gap: '0.15rem',
-          zIndex: 9999
+          zIndex: 9999,
+          boxShadow: menuPlacement === 'top' ? '0 -10px 25px -5px rgba(0, 0, 0, 0.3)' : '0 10px 25px -5px rgba(0, 0, 0, 0.3)'
         }}>
           {options.map((opt) => (
             <button
