@@ -1,0 +1,3 @@
+ALTER TABLE public.time_entries 
+ADD COLUMN deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+ADD COLUMN delete_reason TEXT;

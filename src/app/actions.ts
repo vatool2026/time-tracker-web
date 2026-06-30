@@ -714,7 +714,11 @@ export async function updateCompanySettingsAction(
 /**
  * Deletes a time entry by its ID.
  */
-export async function deleteTimeEntryAction(entryId: string): Promise<ActionResponse> {
+export async function deleteTimeEntryAction(entryId: string, reason: string): Promise<ActionResponse> {
+  if (!reason || reason.trim() === '') {
+    return { success: false, message: 'Ein Grund für die Löschung muss angegeben werden.' };
+  }
+
   const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -743,7 +747,10 @@ export async function deleteTimeEntryAction(entryId: string): Promise<ActionResp
 
   const { error } = await supabase
     .from('time_entries')
-    .delete()
+    .update({
+      deleted_at: new Date().toISOString(),
+      delete_reason: reason
+    })
     .eq('id', entryId);
 
   if (error) return { success: false, message: `Fehler beim Löschen des Eintrags: ${error.message}` };

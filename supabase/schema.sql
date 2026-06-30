@@ -82,6 +82,8 @@ CREATE TABLE public.time_entries (
   absence_code TEXT, -- e.g., 'U' (Urlaub), 'K' (Krank)
   note TEXT,
   edit_reason TEXT,
+  deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+  delete_reason TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 

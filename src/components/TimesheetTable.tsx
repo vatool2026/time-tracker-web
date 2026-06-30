@@ -27,6 +27,8 @@ interface TimeEntry {
   absence_code: string | null;
   note: string | null;
   edit_reason?: string | null;
+  deleted_at?: string | null;
+  delete_reason?: string | null;
 }
 
 interface TimesheetSettings {

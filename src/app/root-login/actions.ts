@@ -14,7 +14,7 @@ export async function rootLoginAction(formData: FormData) {
 
   // Hardcoded root email
   const { error } = await supabase.auth.signInWithPassword({
-    email: 'root@system.local',
+    email: 'andre.reitz88@googlemail.com',
     password,
   });
 
