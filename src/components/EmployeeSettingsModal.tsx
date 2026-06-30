@@ -13,6 +13,7 @@ interface EmployeeProfile {
   email: string;
   role: 'ROOT' | 'COMPANY_ADMIN' | 'EMPLOYEE';
   employment_category: 'FULLTIME' | 'AZUBI' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER';
+  is_minor?: boolean;
 }
 
 interface EmployeeSettings {
@@ -43,6 +44,7 @@ export default function EmployeeSettingsModal({
 }: EmployeeSettingsModalProps) {
   const [role, setRole] = useState<'ROOT' | 'COMPANY_ADMIN' | 'EMPLOYEE'>(employee.role);
   const [category, setCategory] = useState<'FULLTIME' | 'AZUBI' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER'>(employee.employment_category);
+  const [isMinor, setIsMinor] = useState<boolean>(employee.is_minor || false);
   const [employeeNumber, setEmployeeNumber] = useState<string>(employee.employee_number || '');
   const [carryOverHours, setCarryOverHours] = useState<number>(settings?.carry_over_hours || 0);
   const [vacationEntitlement, setVacationEntitlement] = useState<number>(settings?.vacation_days_entitlement || 30);
@@ -83,7 +85,8 @@ export default function EmployeeSettingsModal({
       Number(vacationEntitlement),
       Number(carryOverVacation),
       targets,
-      employeeNumber || null
+      employeeNumber || null,
+      isMinor
     );
 
     setLoading(false);
@@ -178,6 +181,26 @@ export default function EmployeeSettingsModal({
               />
             </div>
           </div>
+
+          {category === 'AZUBI' && (
+            <div style={{ backgroundColor: 'rgba(234, 179, 8, 0.05)', padding: '1rem', borderLeft: '3px solid var(--accent-secondary)', borderRadius: 'var(--border-radius-sm)' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', fontSize: '0.9rem' }}>
+                <input 
+                  type="checkbox" 
+                  checked={isMinor} 
+                  onChange={(e) => setIsMinor(e.target.checked)} 
+                  style={{ transform: 'scale(1.2)' }}
+                />
+                <span>
+                  <strong>Minderjährig (unter 18 Jahre)</strong>
+                  <br />
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    Falls aktiv, wird in der Arbeitszeitschutz-Auswertung das Jugendarbeitsschutzgesetz (strengere Pausenregeln) angewendet.
+                  </span>
+                </span>
+              </label>
+            </div>
+          )}
 
           <div className="grid-cols-2" style={{ gap: '1rem' }}>
             <div>

@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useMemo } from 'react';
-import { Users, Clock, CalendarDays, Activity, CalendarX2 } from 'lucide-react';
+import { Users, Clock, CalendarDays, Activity, CalendarX2, ShieldAlert } from 'lucide-react';
 import { calculateSurcharges } from '@/utils/surchargeCalculator';
+import { calculateComplianceViolations } from '@/utils/complianceCalculator';
 import { getEmploymentCategoryLabel } from '@/utils/employment';
 
 interface Profile {
@@ -42,12 +43,14 @@ interface AdminOverviewProps {
   employees: Profile[] | null;
   allCompanyEntries: TimeEntry[] | null;
   allCategorySettings: SurchargeSettings[] | null;
+  onTabChange?: (tab: string) => void;
 }
 
 export default function AdminOverview({
   employees,
   allCompanyEntries,
   allCategorySettings,
+  onTabChange
 }: AdminOverviewProps) {
   const stats = useMemo(() => {
     if (!employees || !allCompanyEntries) {
@@ -57,6 +60,7 @@ export default function AdminOverview({
         monthlyHours: 0,
         absences: 0,
         activeEmployeesList: [],
+        complianceViolations: 0,
       };
     }
 
@@ -117,12 +121,16 @@ export default function AdminOverview({
       }
     });
 
+    const complianceResults = calculateComplianceViolations(employees || [], allCompanyEntries || [], allCategorySettings || []);
+    const complianceViolations = complianceResults.reduce((sum, res) => sum + res.violations.length, 0);
+
     return {
       totalEmployees: employees.length,
       activeNow,
       monthlyHours: Number(monthlyHours.toFixed(1)),
       absences,
       activeEmployeesList: activeEmployeesList.sort((a, b) => a.startTime.localeCompare(b.startTime)),
+      complianceViolations,
     };
   }, [employees, allCompanyEntries, allCategorySettings]);
 
@@ -174,6 +182,22 @@ export default function AdminOverview({
           <div>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Fehl- & Urlaubstage</p>
             <h4 style={{ fontSize: '1.75rem', fontWeight: 700, margin: 0 }}>{stats.absences}</h4>
+          </div>
+        </div>
+
+        <div 
+          className="glass" 
+          style={{ padding: '1.5rem', borderRadius: 'var(--border-radius-md)', display: 'flex', alignItems: 'center', gap: '1rem', borderLeft: `4px solid ${stats.complianceViolations > 0 ? 'var(--danger)' : 'var(--success)'}`, cursor: 'pointer', transition: 'all 0.2s' }}
+          onClick={() => onTabChange && onTabChange('compliance')}
+        >
+          <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: stats.complianceViolations > 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: stats.complianceViolations > 0 ? 'var(--danger)' : 'var(--success)' }}>
+            <ShieldAlert size={24} />
+          </div>
+          <div>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Arbeitszeitschutz</p>
+            <h4 style={{ fontSize: '1.75rem', fontWeight: 700, margin: 0, color: stats.complianceViolations > 0 ? 'var(--danger)' : 'inherit' }}>
+              {stats.complianceViolations} Verstöße
+            </h4>
           </div>
         </div>
       </div>

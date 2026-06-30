@@ -865,6 +865,7 @@ export default function DashboardContainer({
               employees={employees} 
               allCompanyEntries={allCompanyEntries} 
               allCategorySettings={allCategorySettings} 
+              onTabChange={(tab) => setAdminSubTab(tab as any)}
             />
           )}
 

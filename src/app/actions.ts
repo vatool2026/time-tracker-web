@@ -549,7 +549,8 @@ export async function updateEmployeeSettingsAction(
     saturday: number;
     sunday: number;
   },
-  employeeNumber?: string | null
+  employeeNumber?: string | null,
+  isMinor?: boolean
 ): Promise<ActionResponse> {
   const supabase = await createClient();
 
@@ -574,6 +575,7 @@ export async function updateEmployeeSettingsAction(
       role,
       employment_category: employmentCategory,
       employee_number: employeeNumber !== undefined ? employeeNumber : undefined,
+      is_minor: isMinor !== undefined ? isMinor : undefined,
     })
     .eq('id', employeeId)
     .eq('company_id', callerProfile.company_id); // Security: check same company
