@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import CustomSelect from './CustomSelect';
 import ThemeToggle from './ThemeToggle';
 import { LogOut, ChevronDown, ChevronUp, Search, Building, Lock, Unlock, Key, MoreVertical, Edit2, Trash2 } from 'lucide-react';
+import { getEmploymentCategoryLabel } from '@/utils/employment';
 
 export default function RootDashboard({ companies, profiles, rootProfile }: any) {
   const router = useRouter();
@@ -153,7 +154,15 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
       !searchQuery || 
       (p.first_name + ' ' + p.last_name).toLowerCase().includes(searchQuery.toLowerCase()) || 
       p.email.toLowerCase().includes(searchQuery.toLowerCase())
-    ));
+    )).sort((a: any, b: any) => {
+      const catA = getEmploymentCategoryLabel(a.employment_category || 'OTHER');
+      const catB = getEmploymentCategoryLabel(b.employment_category || 'OTHER');
+      if (catA < catB) return -1;
+      if (catA > catB) return 1;
+      const nameA = `${a.first_name || ''} ${a.last_name || ''}`.trim().toLowerCase();
+      const nameB = `${b.first_name || ''} ${b.last_name || ''}`.trim().toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
   }, [profiles, searchQuery]);
 
   const renderProfile = (p: any) => (
@@ -192,6 +201,13 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
             marginTop: '0.25rem'
           }}>
             {p.role}
+          </span>
+        </div>
+
+        <div style={{ flex: '1 1 120px', display: 'flex', flexDirection: 'column' }}>
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Kategorie</span>
+          <span style={{ fontSize: '0.85rem', marginTop: '0.25rem' }}>
+            {getEmploymentCategoryLabel(p.employment_category || 'OTHER')}
           </span>
         </div>
 
@@ -359,7 +375,17 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {filteredCompanies.map((c: any) => {
-            const companyEmployees = profiles.filter((p: any) => p.company_id === c.id);
+            const companyEmployees = profiles
+              .filter((p: any) => p.company_id === c.id)
+              .sort((a: any, b: any) => {
+                const catA = getEmploymentCategoryLabel(a.employment_category || 'OTHER');
+                const catB = getEmploymentCategoryLabel(b.employment_category || 'OTHER');
+                if (catA < catB) return -1;
+                if (catA > catB) return 1;
+                const nameA = `${a.first_name || ''} ${a.last_name || ''}`.trim().toLowerCase();
+                const nameB = `${b.first_name || ''} ${b.last_name || ''}`.trim().toLowerCase();
+                return nameA.localeCompare(nameB);
+              });
             const isExpanded = expandedCompanyId === c.id;
 
             return (
@@ -462,7 +488,7 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
                 {/* Employees List */}
                 {isExpanded && (
                   <div style={{ padding: '1.5rem', background: 'rgba(0,0,0,0.1)', borderTop: '1px solid var(--border-color)' }}>
-                    <h4 style={{ fontWeight: 600, marginBottom: '1rem', color: 'var(--text-secondary)' }}>Mitarbeiter in {c.name}</h4>
+                    <h4 style={{ fontWeight: 600, marginBottom: '1rem', color: 'var(--text-secondary)' }}>Mitarbeiter</h4>
                     {companyEmployees.length === 0 ? (
                       <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Keine Mitarbeiter vorhanden.</p>
                     ) : (

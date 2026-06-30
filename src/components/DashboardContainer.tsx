@@ -790,7 +790,7 @@ export default function DashboardContainer({
           {adminSubTab === 'employees' && employees && (
             <div>
               <div className="flex-between" style={{ marginBottom: '1.5rem' }}>
-                <h3 style={{ fontSize: '1.25rem', margin: 0 }}>Firmen-Mitarbeiter</h3>
+                <h3 style={{ fontSize: '1.25rem', margin: 0 }}>Mitarbeiter</h3>
                 <button onClick={() => setIsInviteModalOpen(true)} className="btn btn-primary">
                   <PlusCircle size={16} /> Mitarbeiter einladen
                 </button>
@@ -809,7 +809,15 @@ export default function DashboardContainer({
                     </tr>
                   </thead>
                   <tbody>
-                    {employees.map(emp => (
+                    {[...(employees || [])].sort((a: any, b: any) => {
+                      const catA = getEmploymentCategoryLabel(a.employment_category || 'OTHER');
+                      const catB = getEmploymentCategoryLabel(b.employment_category || 'OTHER');
+                      if (catA < catB) return -1;
+                      if (catA > catB) return 1;
+                      const nameA = `${a.first_name || ''} ${a.last_name || ''}`.trim().toLowerCase();
+                      const nameB = `${b.first_name || ''} ${b.last_name || ''}`.trim().toLowerCase();
+                      return nameA.localeCompare(nameB);
+                    }).map(emp => (
                       <tr key={emp.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', fontSize: '0.9rem' }}>
                         <td style={{ padding: '0.75rem 0.5rem', fontWeight: 600 }}>{emp.first_name} {emp.last_name}</td>
                         <td style={{ padding: '0.75rem 0.5rem', color: 'var(--text-secondary)' }}>{emp.email}</td>
