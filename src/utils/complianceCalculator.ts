@@ -133,17 +133,20 @@ export function calculateComplianceViolations(
       // 4. Rest Period Check
       if (restPeriodEnabled && i > 0 && endD) {
         const nextEntry = empEntries[i - 1]; // chronologically after
-        if (nextEntry.start_time) {
-          const nextStartD = new Date(`${nextEntry.entry_date}T${nextEntry.start_time}`);
-          if (nextStartD > endD) {
-            const diffHours = (nextStartD.getTime() - endD.getTime()) / (1000 * 60 * 60);
-            if (diffHours < restPeriodHours) {
-              violations.push({
-                date: entry.entry_date,
-                type: 'Ruhezeit unterschritten',
-                description: `Nur ${diffHours.toFixed(1)} Std. Ruhezeit zwischen Schichtende (${entry.entry_date} ${entry.end_time.slice(0,5)}) und nächstem Beginn (${nextEntry.entry_date} ${nextEntry.start_time.slice(0,5)}). Minimum: ${restPeriodHours} Std.`,
-                severity: 'error'
-              });
+        // Skip rest period check if both entries are on the same day (considered a split shift with long break)
+        if (entry.entry_date !== nextEntry.entry_date) {
+          if (nextEntry.start_time) {
+            const nextStartD = new Date(`${nextEntry.entry_date}T${nextEntry.start_time}`);
+            if (nextStartD > endD) {
+              const diffHours = (nextStartD.getTime() - endD.getTime()) / (1000 * 60 * 60);
+              if (diffHours < restPeriodHours) {
+                violations.push({
+                  date: entry.entry_date,
+                  type: 'Ruhezeit unterschritten',
+                  description: `Nur ${diffHours.toFixed(1)} Std. Ruhezeit zwischen Schichtende (${entry.entry_date} ${entry.end_time.slice(0,5)}) und nächstem Beginn (${nextEntry.entry_date} ${nextEntry.start_time.slice(0,5)}). Minimum: ${restPeriodHours} Std.`,
+                  severity: 'error'
+                });
+              }
             }
           }
         }

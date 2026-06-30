@@ -2,39 +2,44 @@
 
 import React, { useEffect, useState } from 'react';
 import { Sun, Moon } from 'lucide-react';
+import { useTheme } from 'next-themes';
 
 export default function ThemeToggle() {
-  const [isDark, setIsDark] = useState<boolean>(false);
+  const [mounted, setMounted] = useState(false);
+  const { theme, setTheme } = useTheme();
 
+  // useEffect only runs on the client, so now we can safely show the UI
   useEffect(() => {
-    // Check local storage or system preference
-    const savedTheme = localStorage.getItem('theme');
-    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    
-    const shouldBeDark = savedTheme === 'dark' || (!savedTheme && systemPrefersDark);
-    
-    if (shouldBeDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-    
-    setTimeout(() => {
-      setIsDark(shouldBeDark);
-    }, 0);
+    setMounted(true);
   }, []);
 
   const toggleTheme = () => {
-    if (isDark) {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-      setIsDark(false);
-    } else {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-      setIsDark(true);
-    }
+    setTheme(theme === 'dark' ? 'light' : 'dark');
   };
+
+  if (!mounted) {
+    return (
+      <button
+        className="btn btn-secondary glass"
+        style={{
+          padding: '0.5rem',
+          borderRadius: '50%',
+          width: '40px',
+          height: '40px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'var(--text-primary)',
+          opacity: 0.5
+        }}
+        aria-label="Theme umschalten (Laden)"
+      >
+        <Moon size={20} />
+      </button>
+    );
+  }
+
+  const isDark = theme === 'dark';
 
   return (
     <button
