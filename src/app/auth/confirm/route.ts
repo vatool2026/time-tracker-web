@@ -9,6 +9,14 @@ export async function GET(request: NextRequest) {
   const next = searchParams.get('next') ?? '/dashboard'
 
   if (token_hash && type) {
+    if (type === 'invite' || type === 'recovery') {
+      const redirectUrl = request.nextUrl.clone()
+      redirectUrl.pathname = next
+      redirectUrl.searchParams.set('token_hash', token_hash)
+      redirectUrl.searchParams.set('type', type)
+      return NextResponse.redirect(redirectUrl)
+    }
+
     const supabase = await createClient()
 
     const { error } = await supabase.auth.verifyOtp({

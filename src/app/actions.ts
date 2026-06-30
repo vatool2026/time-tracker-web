@@ -977,12 +977,29 @@ export async function inviteEmployeeAction(
  */
 export async function setupPasswordAction(formData: FormData): Promise<ActionResponse> {
   const password = formData.get('password') as string;
+  const token_hash = formData.get('token_hash') as string | null;
+  const type = formData.get('type') as string | null;
 
   if (!password) {
     return { success: false, message: 'Bitte ein Passwort eingeben.' };
   }
 
   const supabase = await createClient();
+
+  if (token_hash && type) {
+    const { error: otpError } = await supabase.auth.verifyOtp({
+      token_hash,
+      type: type as any,
+    });
+    if (otpError) {
+      return { success: false, message: formatErrorMessage(otpError, 'Ungültiger oder abgelaufener Link') };
+    }
+  } else {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false, message: 'Nicht authentifiziert oder ungültiger Link.' };
+    }
+  }
 
   const { error } = await supabase.auth.updateUser({
     password: password
