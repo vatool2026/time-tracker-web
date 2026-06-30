@@ -10,7 +10,7 @@ DROP TYPE IF EXISTS employment_category CASCADE;
 
 -- Create custom types
 CREATE TYPE user_role AS ENUM ('ROOT', 'COMPANY_ADMIN', 'EMPLOYEE');
-CREATE TYPE employment_category AS ENUM ('FULLTIME', 'PARTTIME', 'MIDIJOB', 'MINIJOB', 'OTHER');
+CREATE TYPE employment_category AS ENUM ('FULLTIME', 'PARTTIME', 'MIDIJOB', 'MINIJOB', 'AZUBI', 'OTHER');
 
 -- Create Company table
 CREATE TABLE public.companies (

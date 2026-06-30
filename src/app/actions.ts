@@ -168,7 +168,7 @@ export async function registerAction(formData: FormData): Promise<ActionResponse
   }
 
   // 4. Create default Category Settings for all categories for this company
-  const categories = ['FULLTIME', 'PARTTIME', 'MIDIJOB', 'MINIJOB', 'OTHER'];
+  const categories = ['FULLTIME', 'AZUBI', 'PARTTIME', 'MIDIJOB', 'MINIJOB', 'OTHER'];
   const categoryInserts = categories.map(cat => ({
     company_id: companyId,
     category: cat,
@@ -509,7 +509,7 @@ export async function deleteAbsenceCodeAction(id: string): Promise<ActionRespons
 export async function updateEmployeeSettingsAction(
   employeeId: string,
   role: 'ROOT' | 'COMPANY_ADMIN' | 'EMPLOYEE',
-  employmentCategory: 'FULLTIME' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER',
+  employmentCategory: 'FULLTIME' | 'AZUBI' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER',
   carryOverHours: number,
   vacationDaysEntitlement: number,
   carryOverVacationDays: number,
@@ -857,7 +857,7 @@ export async function inviteEmployeeAction(
   lastName: string,
   email: string,
   role: 'ROOT' | 'COMPANY_ADMIN' | 'EMPLOYEE',
-  employmentCategory: 'FULLTIME' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER'
+  employmentCategory: 'FULLTIME' | 'AZUBI' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER'
 ): Promise<ActionResponse> {
   const supabase = await createClient();
 

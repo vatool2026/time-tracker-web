@@ -111,11 +111,12 @@ export default function AbsenceCodeModal({ absenceCode, onClose }: AbsenceCodeMo
               onChange={setCategory}
               disabled={isPending || !!absenceCode.id}
               options={[
-                { value: 'FULLTIME', label: 'Vollzeit (FULLTIME)' },
-                { value: 'PARTTIME', label: 'Teilzeit (PARTTIME)' },
-                { value: 'MIDIJOB', label: 'Midijob' },
-                { value: 'MINIJOB', label: 'Minijob' },
-                { value: 'OTHER', label: 'Andere' }
+                { value: 'FULLTIME', label: 'Vollzeit' },
+                { value: 'AZUBI', label: 'Azubi' },
+                { value: 'PARTTIME', label: 'Teilzeit' },
+                { value: 'MIDIJOB', label: 'Midi Job' },
+                { value: 'MINIJOB', label: 'Mini Job' },
+                { value: 'OTHER', label: 'Sonstige' }
               ]}
             />
           </div>

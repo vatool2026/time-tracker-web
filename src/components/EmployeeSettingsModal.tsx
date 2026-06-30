@@ -12,7 +12,7 @@ interface EmployeeProfile {
   employee_number?: string | null;
   email: string;
   role: 'ROOT' | 'COMPANY_ADMIN' | 'EMPLOYEE';
-  employment_category: 'FULLTIME' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER';
+  employment_category: 'FULLTIME' | 'AZUBI' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER';
 }
 
 interface EmployeeSettings {
@@ -42,7 +42,7 @@ export default function EmployeeSettingsModal({
   feature_urlaub = false
 }: EmployeeSettingsModalProps) {
   const [role, setRole] = useState<'ROOT' | 'COMPANY_ADMIN' | 'EMPLOYEE'>(employee.role);
-  const [category, setCategory] = useState<'FULLTIME' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER'>(employee.employment_category);
+  const [category, setCategory] = useState<'FULLTIME' | 'AZUBI' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER'>(employee.employment_category);
   const [employeeNumber, setEmployeeNumber] = useState<string>(employee.employee_number || '');
   const [carryOverHours, setCarryOverHours] = useState<number>(settings?.carry_over_hours || 0);
   const [vacationEntitlement, setVacationEntitlement] = useState<number>(settings?.vacation_days_entitlement || 30);
@@ -166,13 +166,14 @@ export default function EmployeeSettingsModal({
               <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Anstellungskategorie</label>
               <CustomSelect
                 value={category}
-                onChange={(val) => setCategory(val as 'FULLTIME' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER')}
+                onChange={(val) => setCategory(val as 'FULLTIME' | 'AZUBI' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER')}
                 options={[
-                  { value: 'FULLTIME', label: 'Vollzeit (FULLTIME)' },
-                  { value: 'PARTTIME', label: 'Teilzeit (PARTTIME)' },
-                  { value: 'MIDIJOB', label: 'Midijob' },
-                  { value: 'MINIJOB', label: 'Minijob' },
-                  { value: 'OTHER', label: 'Andere (OTHER)' }
+                  { value: 'FULLTIME', label: 'Vollzeit' },
+                  { value: 'AZUBI', label: 'Azubi' },
+                  { value: 'PARTTIME', label: 'Teilzeit' },
+                  { value: 'MIDIJOB', label: 'Midi Job' },
+                  { value: 'MINIJOB', label: 'Mini Job' },
+                  { value: 'OTHER', label: 'Sonstige' }
                 ]}
               />
             </div>

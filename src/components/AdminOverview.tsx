@@ -3,6 +3,7 @@
 import React, { useMemo } from 'react';
 import { Users, Clock, CalendarDays, Activity, CalendarX2 } from 'lucide-react';
 import { calculateSurcharges } from '@/utils/surchargeCalculator';
+import { getEmploymentCategoryLabel } from '@/utils/employment';
 
 interface Profile {
   id: string;
@@ -196,7 +197,7 @@ export default function AdminOverview({
                 {stats.activeEmployeesList.map((emp, idx) => (
                   <tr key={idx} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.03)', fontSize: '0.9rem' }}>
                     <td style={{ padding: '0.75rem 0', fontWeight: 500 }}>{emp.name}</td>
-                    <td style={{ padding: '0.75rem 0', color: 'var(--text-secondary)' }}>{emp.category}</td>
+                    <td style={{ padding: '0.75rem 0', color: 'var(--text-secondary)' }}>{getEmploymentCategoryLabel(emp.category)}</td>
                     <td style={{ padding: '0.75rem 0', textAlign: 'right', fontWeight: 600, color: 'var(--accent-primary)' }}>
                       {emp.startTime.slice(0, 5)} Uhr
                     </td>

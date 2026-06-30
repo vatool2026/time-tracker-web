@@ -24,6 +24,7 @@ import {
   Shield, FileText, CheckCircle, AlertCircle, PlusCircle, LayoutDashboard,
   Clock, Calendar, CalendarDays, BarChart, Settings, MoreHorizontal, Table, ChevronDown, RefreshCw
 } from 'lucide-react';
+import { getEmploymentCategoryLabel } from '@/utils/employment';
 
 interface TimeEntry {
   id: string;
@@ -53,7 +54,7 @@ interface TimesheetSettings {
 interface SurchargeSettings {
   id?: string;
   company_id?: string;
-  category?: 'FULLTIME' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER';
+  category?: 'FULLTIME' | 'AZUBI' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER';
   night_surcharge_start_time: string;
   night_surcharge_end_time: string;
   night_surcharge_rate: number;
@@ -77,7 +78,7 @@ interface Profile {
   last_name: string;
   employee_number?: string | null;
   role: 'ROOT' | 'COMPANY_ADMIN' | 'EMPLOYEE';
-  employment_category: 'FULLTIME' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER';
+  employment_category: 'FULLTIME' | 'AZUBI' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER';
   companies?: {
     id: string;
     name: string;
@@ -505,7 +506,7 @@ export default function DashboardContainer({
           <div className="user-details">
             <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>{profile.first_name} {profile.last_name}</span>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-              {profile.role === 'COMPANY_ADMIN' ? 'Admin' : (profile.role === 'ROOT' ? 'Inhaber' : 'Mitarbeiter')} ({profile.employment_category})
+              {profile.role === 'COMPANY_ADMIN' ? 'Admin' : (profile.role === 'ROOT' ? 'Inhaber' : 'Mitarbeiter')} ({getEmploymentCategoryLabel(profile.employment_category)})
             </span>
           </div>
 
@@ -819,7 +820,7 @@ export default function DashboardContainer({
                             {emp.role}
                           </span>
                         </td>
-                        <td style={{ padding: '0.75rem 0.5rem' }}>{emp.employment_category}</td>
+                        <td style={{ padding: '0.75rem 0.5rem' }}>{getEmploymentCategoryLabel(emp.employment_category)}</td>
                         <td style={{ padding: '0.75rem 0.5rem' }}>
                           <button
                             onClick={() => setEditingEmployee(emp)}
@@ -846,7 +847,7 @@ export default function DashboardContainer({
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {['FULLTIME', 'PARTTIME', 'MIDIJOB', 'MINIJOB', 'OTHER'].map(cat => {
+                {['FULLTIME', 'AZUBI', 'PARTTIME', 'MIDIJOB', 'MINIJOB', 'OTHER'].map(cat => {
                   const set = allCategorySettings.find(s => s.category === cat) || {
                     night_surcharge_start_time: '22:00:00',
                     night_surcharge_end_time: '06:00:00',
@@ -862,7 +863,7 @@ export default function DashboardContainer({
                       style={{ borderRadius: 'var(--border-radius-sm)', overflow: 'hidden' }}
                     >
                       <summary style={{ padding: '1rem 1.5rem', fontWeight: 600, color: 'var(--accent-primary)', cursor: 'pointer', outline: 'none' }}>
-                        Kategorie: {cat}
+                        Kategorie: {getEmploymentCategoryLabel(cat as string)}
                       </summary>
                       <form 
                         onSubmit={(e) => handleSurchargeUpdate(e, cat)}
@@ -921,7 +922,7 @@ export default function DashboardContainer({
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {['FULLTIME', 'PARTTIME', 'MIDIJOB', 'MINIJOB', 'OTHER'].map(cat => {
+                {['FULLTIME', 'AZUBI', 'PARTTIME', 'MIDIJOB', 'MINIJOB', 'OTHER'].map(cat => {
                   const codes = absenceCodes?.filter(c => c.employment_category === cat) || [];
 
                   return (
@@ -931,7 +932,7 @@ export default function DashboardContainer({
                       style={{ borderRadius: 'var(--border-radius-sm)', overflow: 'hidden' }}
                     >
                       <summary style={{ padding: '1rem 1.5rem', fontWeight: 600, color: 'var(--accent-primary)', cursor: 'pointer', outline: 'none' }}>
-                        Kategorie: {cat} ({codes.length} Kürzel)
+                        Kategorie: {getEmploymentCategoryLabel(cat as string)} ({codes.length} Kürzel)
                       </summary>
                       
                       <div style={{ padding: '0 1.5rem 1.5rem', borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>

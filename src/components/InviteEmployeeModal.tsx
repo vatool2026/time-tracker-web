@@ -131,10 +131,11 @@ export default function InviteEmployeeModal({ onClose, onSuccess }: InviteEmploy
                 disabled={loading}
                 options={[
                   { value: 'FULLTIME', label: 'Vollzeit' },
+                  { value: 'AZUBI', label: 'Azubi' },
                   { value: 'PARTTIME', label: 'Teilzeit' },
-                  { value: 'MIDIJOB', label: 'Midijob' },
-                  { value: 'MINIJOB', label: 'Minijob' },
-                  { value: 'OTHER', label: 'Andere' }
+                  { value: 'MIDIJOB', label: 'Midi Job' },
+                  { value: 'MINIJOB', label: 'Mini Job' },
+                  { value: 'OTHER', label: 'Sonstige' }
                 ]}
               />
             </div>
