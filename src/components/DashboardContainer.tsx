@@ -355,19 +355,91 @@ export default function DashboardContainer({
     ).sort((a, b) => a.entry_date.localeCompare(b.entry_date) || a.start_time.localeCompare(b.start_time));
   }, [reportEmployeeId, reportStartDate, reportEndDate, allCompanyEntries]);
 
-  const handlePDFExport = () => {
+  const processLogo = (logoUrl: string): Promise<string | null> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve(logoUrl);
+        ctx.drawImage(img, 0, 0);
+        
+        try {
+          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imgData.data;
+          let hasTransparent = false;
+          let isWhite = true;
+          let hasNonTransparent = false;
+          
+          for (let i = 0; i < data.length; i += 4) {
+            if (data[i+3] < 255) hasTransparent = true;
+            if (data[i+3] > 0) {
+              hasNonTransparent = true;
+              if (data[i] < 230 || data[i+1] < 230 || data[i+2] < 230) {
+                isWhite = false;
+                break;
+              }
+            }
+          }
+          
+          if (hasTransparent && isWhite && hasNonTransparent) {
+            for (let i = 0; i < data.length; i += 4) {
+              if (data[i+3] > 0) {
+                data[i] = 0;
+                data[i+1] = 0;
+                data[i+2] = 0;
+              }
+            }
+            ctx.putImageData(imgData, 0, 0);
+          }
+          resolve(canvas.toDataURL('image/png'));
+        } catch (e) {
+          resolve(logoUrl);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = logoUrl;
+    });
+  };
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length === 3) return `${parts[2]}.${parts[1]}.${parts[0]}`;
+    return dateStr;
+  };
+
+  const handlePDFExport = async () => {
     if (!filteredDetailedEntries.length) return;
     const emp = employees?.find(e => e.id === reportEmployeeId);
     if (!emp) return;
 
-    const doc = new jsPDF();
+    const approxHeight = 60 + (filteredDetailedEntries.length + 1) * 12;
+    const pageHeight = Math.max(297, approxHeight);
+
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: [210, pageHeight]
+    });
+    
     doc.setFont("helvetica", "bold");
     doc.setFontSize(16);
     doc.text(`Stundenbericht: ${emp.first_name} ${emp.last_name}`, 14, 20);
     
     doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
-    doc.text(`Zeitraum: ${reportStartDate} bis ${reportEndDate}`, 14, 28);
+    doc.text(`Zeitraum: ${formatDate(reportStartDate)} bis ${formatDate(reportEndDate)}`, 14, 28);
+
+    if (profile.companies?.logo_url) {
+      const logoData = await processLogo(profile.companies.logo_url);
+      if (logoData) {
+        doc.addImage(logoData, 'PNG', 160, 10, 35, 15, undefined, 'FAST');
+      }
+    }
 
     const empSurchSettings = allCategorySettings?.find(s => s.category === emp.employment_category);
 
@@ -393,7 +465,7 @@ export default function DashboardContainer({
       else if (!entry.end_time) status = 'Offen';
       
       return [
-        entry.entry_date,
+        formatDate(entry.entry_date),
         status ? '-' : entry.start_time.slice(0, 5),
         status ? '-' : (entry.end_time ? entry.end_time.slice(0, 5) : '-'),
         status ? '-' : `${entry.break_minutes || 0}m`,
@@ -419,7 +491,7 @@ export default function DashboardContainer({
       headStyles: { fillColor: [59, 130, 246] }
     });
 
-    doc.save(`Stundenbericht_${emp.first_name}_${emp.last_name}_${reportStartDate}_bis_${reportEndDate}.pdf`);
+    doc.save(`Stundenbericht_${emp.first_name}_${emp.last_name}_${formatDate(reportStartDate)}_bis_${formatDate(reportEndDate)}.pdf`);
   };
 
   // CSV Exporter
