@@ -10,6 +10,7 @@ interface Profile {
   last_name: string;
   email: string;
   employment_category: string;
+  last_login?: string | null;
 }
 
 interface TimesheetSettings {

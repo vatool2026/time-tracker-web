@@ -79,6 +79,7 @@ interface Profile {
   employee_number?: string | null;
   role: 'ROOT' | 'COMPANY_ADMIN' | 'EMPLOYEE';
   employment_category: 'FULLTIME' | 'AZUBI' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER';
+  last_login?: string | null;
   companies?: {
     id: string;
     name: string;
@@ -800,6 +801,7 @@ export default function DashboardContainer({
                       <th style={{ padding: '0.75rem 0.5rem' }}>E-Mail</th>
                       <th style={{ padding: '0.75rem 0.5rem' }}>Rolle</th>
                       <th style={{ padding: '0.75rem 0.5rem' }}>Beschäftigungsart</th>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>Letzter Login</th>
                       <th style={{ padding: '0.75rem 0.5rem', width: '120px' }}>Aktionen</th>
                     </tr>
                   </thead>
@@ -821,6 +823,9 @@ export default function DashboardContainer({
                           </span>
                         </td>
                         <td style={{ padding: '0.75rem 0.5rem' }}>{getEmploymentCategoryLabel(emp.employment_category)}</td>
+                        <td style={{ padding: '0.75rem 0.5rem', color: 'var(--text-secondary)' }}>
+                          {emp.last_login ? new Date(emp.last_login).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) : 'Nie'}
+                        </td>
                         <td style={{ padding: '0.75rem 0.5rem' }}>
                           <button
                             onClick={() => setEditingEmployee(emp)}
