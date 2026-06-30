@@ -164,6 +164,9 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
             {p.is_locked && <Lock size={14} color="var(--danger)" />}
           </h3>
           <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{p.email}</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+            Letzter Login: {p.last_login ? new Date(p.last_login).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) : 'Nie'}
+          </div>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <button onClick={() => { setResetPasswordId(p.id); setNewPassword(''); }} className="btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }} title="Passwort zurücksetzen"><Key size={14} /></button>

@@ -23,6 +23,8 @@ interface TimeEntry {
   end_time: string | null;
   break_minutes: number;
   absence_code: string | null;
+  deleted_at?: string | null;
+  delete_reason?: string | null;
 }
 
 interface SurchargeSettings {
@@ -70,7 +72,7 @@ export default function AdminOverview({
     // Group active entries by user
     const userMap = new Map(employees.map(e => [e.id, e]));
 
-    allCompanyEntries.forEach((entry) => {
+    allCompanyEntries.filter(e => !e.deleted_at).forEach((entry) => {
       const entryDate = new Date(entry.entry_date);
       const isCurrentMonth = entryDate.getMonth() === currentMonth && entryDate.getFullYear() === currentYear;
       const employee = userMap.get(entry.user_id);

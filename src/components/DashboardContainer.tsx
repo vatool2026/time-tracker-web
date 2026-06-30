@@ -35,6 +35,8 @@ interface TimeEntry {
   break_minutes: number;
   absence_code: string | null;
   note: string | null;
+  deleted_at?: string | null;
+  delete_reason?: string | null;
 }
 
 interface TimesheetSettings {
@@ -268,7 +270,7 @@ export default function DashboardContainer({
         holiday_surcharge_rate: 100
       };
 
-      const empEntries = allCompanyEntries.filter(e => e.user_id === emp.id);
+      const empEntries = allCompanyEntries.filter(e => e.user_id === emp.id && !e.deleted_at);
 
       let targetHoursTotal = 0;
       let workedHoursTotal = 0;
@@ -347,6 +349,7 @@ export default function DashboardContainer({
     
     return allCompanyEntries.filter(e => 
       e.user_id === reportEmployeeId &&
+      !e.deleted_at &&
       e.entry_date >= reportStartDate &&
       e.entry_date <= reportEndDate
     ).sort((a, b) => a.entry_date.localeCompare(b.entry_date) || a.start_time.localeCompare(b.start_time));

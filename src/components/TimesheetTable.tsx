@@ -198,14 +198,19 @@ export default function TimesheetTable({
 
   // Process all days to populate the calculations
   const rows = days.map(day => {
-    // 1. Get standard entries for this day
-    const standardEntriesList = getEntriesForDate(day);
+    // 1. Get all entries for this day
+    const allEntriesList = getEntriesForDate(day);
     
-    // 2. Get spillover entries from the previous day
+    // Filter active and deleted
+    const activeEntriesList = allEntriesList.filter(e => !e.deleted_at);
+    const deletedEntriesList = isAdmin ? allEntriesList.filter(e => e.deleted_at) : [];
+    
+    // 2. Get active spillover entries from the previous day
     const prevDay = new Date(day.getTime());
     prevDay.setDate(prevDay.getDate() - 1);
     const prevDayEntries = getEntriesForDate(prevDay);
-    const spilloverEntries = prevDayEntries.filter(e => {
+    const activePrevDayEntries = prevDayEntries.filter(e => !e.deleted_at);
+    const spilloverEntries = activePrevDayEntries.filter(e => {
       if (!e.end_time) return false;
       return e.end_time < e.start_time;
     });
@@ -254,10 +259,10 @@ export default function TimesheetTable({
       });
     }
 
-    if (standardEntriesList.length > 0) {
+    if (activeEntriesList.length > 0) {
       let codeFactor = 1.0;
       let dayHasAbsenceCode = false;
-      const codeStr = standardEntriesList[0].absence_code;
+      const codeStr = activeEntriesList[0].absence_code;
       
       if (codeStr && absenceCodes) {
         const dayCodeObj = absenceCodes.find(c => c.code === codeStr);
@@ -273,7 +278,7 @@ export default function TimesheetTable({
       // Apply the factor to target hours
       targetHours = targetHours * codeFactor;
 
-      standardEntriesList.forEach(entry => {
+      activeEntriesList.forEach(entry => {
         if (dayHasAbsenceCode && entry.start_time === '00:00:00' && entry.end_time === '00:00:00' && entry.break_minutes === 0) {
           // This is a dummy entry to hold the absence code
           dayEntriesList.push({ ...entry, entry_actual_hours: 0, entry_break_minutes: 0 });
@@ -314,9 +319,24 @@ export default function TimesheetTable({
       });
     }
 
+    if (deletedEntriesList.length > 0) {
+      deletedEntriesList.forEach(entry => {
+        dayEntriesList.push({
+          ...entry,
+          original_id: entry.id,
+          entry_actual_hours: 0,
+          entry_break_minutes: entry.break_minutes || 0,
+          entry_nightH: 0,
+          entry_sundayH: 0,
+          entry_holidayH: 0
+        });
+      });
+    }
+
     if (dayEntriesList.length > 0) {
-      // Calculate earliest start and latest end
-      const sorted = [...dayEntriesList].sort((a,b) => a.start_time.localeCompare(b.start_time));
+      // Calculate earliest start and latest end for active entries only
+      const activeOnly = dayEntriesList.filter(e => !e.deleted_at);
+      const sorted = [...activeOnly].sort((a,b) => a.start_time.localeCompare(b.start_time));
       
       // If it's just dummy entries, don't set start/end times
       const nonDummy = sorted.filter(e => !(e.start_time === '00:00:00' && e.end_time === '00:00:00'));
@@ -333,11 +353,12 @@ export default function TimesheetTable({
       
       // combine notes and reasons
       const notes = dayEntriesList
+        .filter(e => !e.deleted_at)
         .map(e => e.note)
         .filter(Boolean)
         .filter(note => !(note && note.startsWith('Code: ')));
         
-      const reasons = dayEntriesList.map(e => e.edit_reason).filter(Boolean);
+      const reasons = dayEntriesList.filter(e => !e.deleted_at).map(e => e.edit_reason).filter(Boolean);
       
       let customStatus = '';
       if (dayEntriesList.length > 1 && nonDummy.length > 0) {
@@ -346,8 +367,9 @@ export default function TimesheetTable({
       
       const allNotes = notes.length > 0 ? notes.join(' | ') : '';
       const allReasons = reasons.length > 0 ? `[Änderung: ${reasons.join(', ')}]` : '';
+      const deletedInfo = deletedEntriesList.length > 0 ? `[Gelöscht: ${deletedEntriesList.map(e => e.delete_reason || 'Kein Grund').join(', ')}]` : '';
       
-      const parts = [customStatus, allNotes, allReasons].filter(Boolean);
+      const parts = [customStatus, allNotes, allReasons, deletedInfo].filter(Boolean);
       if (!displayStatus) displayStatus = parts.join(' | ');
       else if (parts.length > 0) displayStatus += ' | ' + parts.join(' | ');
     } else {
@@ -385,13 +407,34 @@ export default function TimesheetTable({
     };
   });
 
+  const [deleteReasonText, setDeleteReasonText] = useState<string>('');
+
   const handleDelete = async (id: string) => {
-    const res = await deleteTimeEntryAction(id);
+    if (!deleteReasonText || deleteReasonText.trim() === '') {
+      setEditError('Ein Grund für das Löschen muss angegeben werden.');
+      return;
+    }
+
+    const res = await deleteTimeEntryAction(id, deleteReasonText);
     if (res.success) {
       setDeleteConfirm(null);
-      // Remove from local modal state so UI updates immediately
-      setDayEntries(prev => prev.filter(e => (e.original_id || e.id) !== id));
+      setDeleteReasonText('');
+      // Update local modal state 
+      setDayEntries(prev => {
+         const newEntries = [...prev];
+         const index = newEntries.findIndex(e => (e.original_id || e.id) === id);
+         if (index !== -1) {
+             if (isAdmin) {
+                 newEntries[index] = { ...newEntries[index], deleted_at: new Date().toISOString(), delete_reason: deleteReasonText };
+             } else {
+                 newEntries.splice(index, 1);
+             }
+         }
+         return newEntries;
+      });
       router.refresh();
+    } else {
+      setEditError(res.message);
     }
   };
 
