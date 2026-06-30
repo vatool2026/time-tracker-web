@@ -3,6 +3,33 @@
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
+
+/**
+ * Helper to dynamically determine the site URL for redirects.
+ */
+async function getSiteUrl(): Promise<string> {
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    return process.env.NEXT_PUBLIC_SITE_URL;
+  }
+  
+  if (process.env.NEXT_PUBLIC_VERCEL_URL) {
+    return `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`;
+  }
+
+  try {
+    const headersList = await headers();
+    const host = headersList.get('host');
+    if (host) {
+      const protocol = host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https';
+      return `${protocol}://${host}`;
+    }
+  } catch (error) {
+    // Ignore error if not in request context
+  }
+  
+  return 'http://localhost:3000';
+}
 
 export interface ActionResponse {
   success: boolean;
@@ -888,7 +915,7 @@ export async function inviteEmployeeAction(
   );
 
   // 1. Invite the user
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  const siteUrl = await getSiteUrl();
   const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
     redirectTo: `${siteUrl}/auth/confirm?next=/setup-password`
   });
@@ -1189,7 +1216,7 @@ export async function resetPasswordAction(formData: FormData): Promise<ActionRes
   }
 
   const supabase = await createClient();
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  const siteUrl = await getSiteUrl();
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${siteUrl}/auth/confirm?next=/update-password`,
