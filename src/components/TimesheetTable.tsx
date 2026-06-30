@@ -646,6 +646,8 @@ export default function TimesheetTable({
               
               const hasMultipleEntries = dayEntriesList.length > 1;
               const isExpanded = expandedDates.has(localDayStrFormatted);
+              
+              const isAllDeleted = dayEntriesList.length > 0 && dayEntriesList.every(e => !!e.deleted_at);
 
               return (
                 <React.Fragment key={idx}>
@@ -655,6 +657,9 @@ export default function TimesheetTable({
                     fontSize: '0.9rem',
                     transition: 'background-color 0.2s',
                     cursor: 'pointer',
+                    color: isAllDeleted ? 'var(--text-secondary)' : 'inherit',
+                    textDecoration: isAllDeleted ? 'line-through' : 'none',
+                    fontStyle: isAllDeleted ? 'italic' : 'normal'
                   }}
                   className="timesheet-row"
                   onClick={() => toggleRow(localDayStrFormatted)}
@@ -835,8 +840,10 @@ export default function TimesheetTable({
                     if (entry.absence_code === 'U') subStatus = '🏖️ Urlaub';
                     if (entry.absence_code === 'K') subStatus = '🤒 Krank';
                     if (entry.isSpillover) subStatus = 'Nachtschicht Vortag';
+                    const isDeleted = !!entry.deleted_at;
+                    if (isDeleted) subStatus = 'Gelöscht';
                     const noteStr = entry.note && !entry.note.startsWith('Code: ') ? entry.note : '';
-                    const parts = [subStatus, noteStr, entry.edit_reason ? `[Änderung: ${entry.edit_reason}]` : ''].filter(Boolean);
+                    const parts = [subStatus, noteStr, entry.edit_reason ? `[Änderung: ${entry.edit_reason}]` : '', isDeleted && entry.delete_reason ? `[Grund: ${entry.delete_reason}]` : ''].filter(Boolean);
                     const finalStatus = parts.join(' | ');
 
                     return (
@@ -844,6 +851,9 @@ export default function TimesheetTable({
                         borderBottom: '1px solid rgba(255, 255, 255, 0.02)', 
                         backgroundColor: 'rgba(0, 0, 0, 0.2)', // darker background for sub-rows
                         fontSize: '0.85rem',
+                        color: isDeleted ? 'var(--text-secondary)' : 'inherit',
+                        textDecoration: isDeleted ? 'line-through' : 'none',
+                        fontStyle: isDeleted ? 'italic' : 'normal'
                       }}>
                         <td style={{ padding: '0.5rem 0.5rem 0.5rem 2.5rem', color: 'var(--text-secondary)' }}>
                           ↳ Eintrag {subIdx + 1}
@@ -874,7 +884,7 @@ export default function TimesheetTable({
                             </div>
                           ) : '—'}
                         </td>
-                        <td style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: isSubAbsence ? 'italic' : 'normal', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <td style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: (isSubAbsence || isDeleted) ? 'italic' : 'normal', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {finalStatus || '—'}
                         </td>
                         <td style={{ padding: '0.5rem', textAlign: 'center' }}></td>
@@ -985,24 +995,33 @@ export default function TimesheetTable({
                         <div style={{ fontWeight: 600 }}>
                           {`${e.start_time.slice(0,5)} - ${e.end_time ? e.end_time.slice(0,5) : 'Offen'} (Pause: ${e.break_minutes || 0}m)`}
                         </div>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button onClick={() => startEditEntry(e)} className="btn btn-secondary glass" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}>Bearbeiten</button>
-                          
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                           {deleteConfirm === (e.original_id || e.id) ? (
-                            <div style={{ display: 'flex', gap: '0.25rem' }}>
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              <input 
+                                type="text" 
+                                placeholder="Grund für Löschen (Pflichtfeld)" 
+                                value={deleteReasonText} 
+                                onChange={(evt) => setDeleteReasonText(evt.target.value)} 
+                                style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', borderRadius: '4px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-primary)' }}
+                              />
                               <button onClick={() => handleDelete(e.original_id || e.id)} style={{ background: 'var(--danger)', color: 'white', border: 'none', borderRadius: '4px', padding: '0.25rem 0.5rem', fontSize: '0.8rem', cursor: 'pointer' }}>Löschen</button>
-                              <button onClick={() => setDeleteConfirm(null)} style={{ background: 'var(--text-secondary)', color: 'white', border: 'none', borderRadius: '4px', padding: '0.25rem 0.5rem', fontSize: '0.8rem', cursor: 'pointer' }}>X</button>
+                              <button onClick={() => { setDeleteConfirm(null); setDeleteReasonText(''); }} style={{ background: 'var(--text-secondary)', color: 'white', border: 'none', borderRadius: '4px', padding: '0.25rem 0.5rem', fontSize: '0.8rem', cursor: 'pointer' }}>X</button>
                             </div>
                           ) : (
-                            <button onClick={() => setDeleteConfirm(e.original_id || e.id)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><Trash2 size={14}/></button>
+                            <>
+                              {!e.deleted_at && <button onClick={() => startEditEntry(e)} className="btn btn-secondary glass" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}>Bearbeiten</button>}
+                              {!e.deleted_at && <button onClick={() => setDeleteConfirm(e.original_id || e.id)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><Trash2 size={14}/></button>}
+                            </>
                           )}
                         </div>
                       </div>
-                      {(e.note || e.edit_reason || e.isSpillover) && (
+                      {(e.note || e.edit_reason || e.isSpillover || e.deleted_at) && (
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                           {e.isSpillover && <div style={{ color: 'var(--info)' }}>* Teil einer Schicht vom Vortag. (Bearbeitet die gesamte Schicht)</div>}
                           {e.note && <div>Notiz: {e.note}</div>}
-                          {e.edit_reason && <div>Grund: {e.edit_reason}</div>}
+                          {e.edit_reason && <div>Grund der Änderung: {e.edit_reason}</div>}
+                          {e.deleted_at && <div style={{ color: 'var(--danger)' }}>Gelöscht am: {new Date(e.deleted_at).toLocaleString('de-DE')} | Grund: {e.delete_reason}</div>}
                         </div>
                       )}
                     </div>
