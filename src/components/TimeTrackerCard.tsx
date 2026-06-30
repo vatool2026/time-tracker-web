@@ -36,6 +36,8 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
     return null;
   });
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [breakWarning, setBreakWarning] = useState<string | null>(null);
+
   
   // Absence Form State
   const [absenceDate, setAbsenceDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
@@ -88,6 +90,21 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
       const seconds = String(totalSeconds % 60).padStart(2, '0');
 
       setElapsedTime(`${hours}:${minutes}:${seconds}`);
+
+      // Check ArbZG break requirements
+      const totalBreakMinutes = (activeEntry.break_minutes || 0) + (isOnBreak && breakStartVal ? Math.floor((now.getTime() - breakStartVal) / 60000) : 0);
+      
+      if (totalSeconds >= 9 * 3600 && totalBreakMinutes < 45) {
+        setBreakWarning('Achtung: Bei über 9 Std. Arbeitszeit sind gesetzlich mind. 45 Min. Pause vorgeschrieben.');
+      } else if (totalSeconds >= 8.75 * 3600 && totalBreakMinutes < 45) {
+        setBreakWarning('Hinweis: Nach 9 Std. Arbeitszeit sind gesetzlich mind. 45 Min. Pause vorgeschrieben.');
+      } else if (totalSeconds >= 6 * 3600 && totalBreakMinutes < 30) {
+        setBreakWarning('Achtung: Nach 6 Std. Arbeitszeit sind gesetzlich mind. 30 Min. Pause vorgeschrieben.');
+      } else if (totalSeconds >= 5.75 * 3600 && totalBreakMinutes < 30) {
+        setBreakWarning('Hinweis: Sie arbeiten bald 6 Stunden. Bitte denken Sie an die gesetzliche Pause (30 Min).');
+      } else {
+        setBreakWarning(null);
+      }
     }, 1000);
 
     return () => clearInterval(timer);
@@ -215,6 +232,26 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
             {activeEntry ? `Heute gestartet um ${activeEntry.start_time.slice(0,5)} Uhr` : 'Bereit zum Einstempeln'}
           </span>
         </div>
+
+        {/* Break Warning Message */}
+        {breakWarning && (
+          <div className="glass" style={{
+            padding: '0.75rem 1rem',
+            borderRadius: 'var(--border-radius-sm)',
+            width: '100%',
+            backgroundColor: 'rgba(245, 158, 11, 0.15)',
+            border: '1px solid var(--warning)',
+            color: 'var(--warning)',
+            fontSize: '0.9rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            marginBottom: '0.5rem'
+          }}>
+            <AlertCircle size={18} style={{ flexShrink: 0 }} />
+            <span>{breakWarning}</span>
+          </div>
+        )}
 
         {/* Action Message Alert */}
         {message && (
