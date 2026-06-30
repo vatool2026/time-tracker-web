@@ -6,7 +6,28 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const token_hash = searchParams.get('token_hash')
   const type = searchParams.get('type') as EmailOtpType | null
+  const code = searchParams.get('code')
   const next = searchParams.get('next') ?? '/dashboard'
+
+  if (code) {
+    if (next === '/setup-password' || next === '/update-password') {
+      const redirectUrl = request.nextUrl.clone()
+      redirectUrl.pathname = next
+      redirectUrl.searchParams.set('code', code)
+      return NextResponse.redirect(redirectUrl)
+    }
+
+    const supabase = await createClient()
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    
+    if (!error) {
+      const redirectUrl = request.nextUrl.clone()
+      redirectUrl.pathname = next
+      redirectUrl.searchParams.delete('code')
+      redirectUrl.searchParams.delete('next')
+      return NextResponse.redirect(redirectUrl)
+    }
+  }
 
   if (token_hash && type) {
     if (type === 'invite' || type === 'recovery') {

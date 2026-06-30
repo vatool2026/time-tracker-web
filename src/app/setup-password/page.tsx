@@ -10,6 +10,7 @@ function SetupPasswordForm() {
   const searchParams = useSearchParams();
   const token_hash = searchParams.get('token_hash');
   const type = searchParams.get('type');
+  const code = searchParams.get('code');
 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<boolean>(false);
@@ -79,6 +80,7 @@ function SetupPasswordForm() {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {token_hash && <input type="hidden" name="token_hash" value={token_hash} />}
           {type && <input type="hidden" name="type" value={type} />}
+          {code && <input type="hidden" name="code" value={code} />}
           
           <div>
             <div className="flex-between" style={{ marginBottom: '0.5rem' }}>
