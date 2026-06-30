@@ -355,7 +355,7 @@ export default function DashboardContainer({
     ).sort((a, b) => a.entry_date.localeCompare(b.entry_date) || a.start_time.localeCompare(b.start_time));
   }, [reportEmployeeId, reportStartDate, reportEndDate, allCompanyEntries]);
 
-  const processLogo = (logoUrl: string): Promise<string | null> => {
+  const processLogo = (logoUrl: string): Promise<{data: string, width: number, height: number} | null> => {
     return new Promise((resolve) => {
       const img = new Image();
       img.crossOrigin = 'Anonymous';
@@ -364,7 +364,7 @@ export default function DashboardContainer({
         canvas.width = img.width;
         canvas.height = img.height;
         const ctx = canvas.getContext('2d');
-        if (!ctx) return resolve(logoUrl);
+        if (!ctx) return resolve({ data: logoUrl, width: img.width, height: img.height });
         ctx.drawImage(img, 0, 0);
         
         try {
@@ -395,9 +395,9 @@ export default function DashboardContainer({
             }
             ctx.putImageData(imgData, 0, 0);
           }
-          resolve(canvas.toDataURL('image/png'));
+          resolve({ data: canvas.toDataURL('image/png'), width: img.width, height: img.height });
         } catch (e) {
-          resolve(logoUrl);
+          resolve({ data: logoUrl, width: img.width, height: img.height });
         }
       };
       img.onerror = () => resolve(null);
@@ -435,9 +435,20 @@ export default function DashboardContainer({
     doc.text(`Zeitraum: ${formatDate(reportStartDate)} bis ${formatDate(reportEndDate)}`, 14, 28);
 
     if (profile.companies?.logo_url) {
-      const logoData = await processLogo(profile.companies.logo_url);
-      if (logoData) {
-        doc.addImage(logoData, 'PNG', 160, 10, 35, 15, undefined, 'FAST');
+      const logoObj = await processLogo(profile.companies.logo_url);
+      if (logoObj) {
+        // Max dimensions for logo
+        const maxWidth = 40;
+        const maxHeight = 18;
+        
+        const ratio = Math.min(maxWidth / logoObj.width, maxHeight / logoObj.height);
+        const finalWidth = logoObj.width * ratio;
+        const finalHeight = logoObj.height * ratio;
+        
+        // Right align the logo taking the final width into account
+        const xPos = 196 - finalWidth; 
+        
+        doc.addImage(logoObj.data, 'PNG', xPos, 10, finalWidth, finalHeight, undefined, 'FAST');
       }
     }
 
