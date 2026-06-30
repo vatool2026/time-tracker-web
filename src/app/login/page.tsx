@@ -90,6 +90,9 @@ export default function LoginPage() {
               <label htmlFor="password" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
                 Passwort
               </label>
+              <Link href="/reset-password" style={{ fontSize: '0.8rem', color: 'var(--accent-primary)', textDecoration: 'none' }}>
+                Passwort vergessen?
+              </Link>
             </div>
             <div style={{ position: 'relative' }}>
               <input

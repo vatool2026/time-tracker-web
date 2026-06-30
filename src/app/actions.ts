@@ -1177,3 +1177,27 @@ export async function updateUserEmailAction(email: string): Promise<ActionRespon
   
   return { success: true, message: 'E-Mail-Adresse erfolgreich geändert. Möglicherweise müssen Sie die neue E-Mail bestätigen.' };
 }
+
+/**
+ * Sends a password reset email to the user.
+ */
+export async function resetPasswordAction(formData: FormData): Promise<ActionResponse> {
+  const email = formData.get('email') as string;
+
+  if (!email) {
+    return { success: false, message: 'Bitte E-Mail eingeben.' };
+  }
+
+  const supabase = await createClient();
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${siteUrl}/auth/confirm?next=/update-password`,
+  });
+
+  if (error) {
+    return { success: false, message: formatErrorMessage(error, 'Fehler beim Senden der E-Mail') };
+  }
+
+  return { success: true, message: 'E-Mail zum Zurücksetzen des Passworts wurde gesendet.' };
+}
