@@ -17,12 +17,13 @@ import { calculateSurcharges } from '@/utils/surchargeCalculator';
 import AdminOverview from './AdminOverview';
 import ImportTimeEntries from './ImportTimeEntries';
 import CarryoverAdminTab from './CarryoverAdminTab';
+import ComplianceAdminTab from './ComplianceAdminTab';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { 
   Building, LogOut, Users, Download, Upload,
   Shield, FileText, CheckCircle, AlertCircle, PlusCircle, LayoutDashboard,
-  Clock, Calendar, CalendarDays, BarChart, Settings, MoreHorizontal, Table, ChevronDown, RefreshCw
+  Clock, Calendar, CalendarDays, BarChart, Settings, MoreHorizontal, Table, ChevronDown, RefreshCw, ShieldAlert
 } from 'lucide-react';
 import { getEmploymentCategoryLabel } from '@/utils/employment';
 
@@ -62,6 +63,12 @@ interface SurchargeSettings {
   night_surcharge_rate: number;
   sunday_surcharge_rate: number;
   holiday_surcharge_rate: number;
+  compliance_max_hours_enabled?: boolean;
+  compliance_max_hours?: number;
+  compliance_rest_period_enabled?: boolean;
+  compliance_rest_period_hours?: number;
+  compliance_break_enabled?: boolean;
+  compliance_sunday_holiday_enabled?: boolean;
 }
 
 export interface AbsenceCode {
@@ -119,7 +126,7 @@ export default function DashboardContainer({
 }: DashboardContainerProps) {
   const isAdmin = profile.role === 'COMPANY_ADMIN' || profile.role === 'ROOT';
   const [activeTab, setActiveTab] = useState<'employee' | 'admin'>(isAdmin ? 'admin' : 'employee');
-  const [adminSubTab, setAdminSubTab] = useState<'overview' | 'employees' | 'surcharges' | 'absences' | 'company' | 'carryover' | 'import' | 'reports' | 'settings'>('overview');
+  const [adminSubTab, setAdminSubTab] = useState<'overview' | 'employees' | 'surcharges' | 'absences' | 'company' | 'carryover' | 'import' | 'reports' | 'compliance' | 'settings'>('overview');
   const [employeeSubTab, setEmployeeSubTab] = useState<'zeiterfassung' | 'stundenzettel' | 'urlaub' | 'statistik' | 'sonstiges' | 'einstellungen'>('zeiterfassung');
   // Modals
   const [editingEmployee, setEditingEmployee] = useState<Profile | null>(null);
@@ -826,11 +833,12 @@ export default function DashboardContainer({
               { id: 'carryover', label: 'Start-Überträge', icon: <Clock size={16} /> },
               { id: 'import', label: 'Daten-Import', icon: <Upload size={16} /> },
               { id: 'reports', label: 'Monatsberichte & Export', icon: <FileText size={16} /> },
+              { id: 'compliance', label: 'Arbeitszeitschutz', icon: <ShieldAlert size={16} /> },
               { id: 'settings', label: 'Einstellungen', icon: <Settings size={16} /> }
             ].map(tab => (
               <button
                 key={tab.id}
-                onClick={() => setAdminSubTab(tab.id as 'overview' | 'employees' | 'surcharges' | 'absences' | 'company' | 'carryover' | 'import' | 'reports' | 'settings')}
+                onClick={() => setAdminSubTab(tab.id as any)}
                 style={{
                   border: 'none',
                   background: 'none',
@@ -1293,6 +1301,17 @@ export default function DashboardContainer({
             </div>
           )}
 
+          {/* Sub-Tab content: Compliance / Arbeitszeitschutz */}
+          {adminSubTab === 'compliance' && (
+            <div style={{ maxWidth: '1000px' }}>
+              <ComplianceAdminTab 
+                employees={employees || []}
+                allCompanyEntries={allCompanyEntries || []}
+                allCategorySettings={allCategorySettings || []}
+              />
+            </div>
+          )}
+
           {/* Sub-Tab content: Settings */}
           {adminSubTab === 'settings' && (
             <div style={{ maxWidth: '600px' }}>
@@ -1487,6 +1506,7 @@ export default function DashboardContainer({
               { id: 'carryover', label: 'Überträge', icon: <Clock size={20} /> },
               { id: 'import', label: 'Import', icon: <Upload size={20} /> },
               { id: 'reports', label: 'Berichte', icon: <FileText size={20} /> },
+              { id: 'compliance', label: 'ArbZG', icon: <ShieldAlert size={20} /> },
               { id: 'settings', label: 'Einstellungen', icon: <Settings size={20} /> }
             ].map((tab: any) => (
               <button

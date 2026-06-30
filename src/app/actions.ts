@@ -673,6 +673,52 @@ export async function updateSurchargeSettingsAction(
 }
 
 /**
+ * Admin action: updates compliance settings for a specific category.
+ */
+export async function updateComplianceSettingsAction(
+  category: string,
+  maxHoursEnabled: boolean,
+  maxHours: number,
+  restPeriodEnabled: boolean,
+  restPeriodHours: number,
+  breakEnabled: boolean,
+  sundayHolidayEnabled: boolean
+): Promise<ActionResponse> {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, message: 'Nicht authentifiziert.' };
+
+  const { data: callerProfile } = await supabase
+    .from('profiles')
+    .select('role, company_id')
+    .eq('id', user.id)
+    .single();
+
+  if (!callerProfile || (callerProfile.role !== 'COMPANY_ADMIN' && callerProfile.role !== 'ROOT')) {
+    return { success: false, message: 'Keine Administratorrechte.' };
+  }
+
+  const { error } = await supabase
+    .from('category_settings')
+    .update({
+      compliance_max_hours_enabled: maxHoursEnabled,
+      compliance_max_hours: maxHours,
+      compliance_rest_period_enabled: restPeriodEnabled,
+      compliance_rest_period_hours: restPeriodHours,
+      compliance_break_enabled: breakEnabled,
+      compliance_sunday_holiday_enabled: sundayHolidayEnabled,
+    })
+    .eq('company_id', callerProfile.company_id)
+    .eq('category', category);
+
+  if (error) return { success: false, message: `Fehler beim Aktualisieren der Compliance-Regeln: ${error.message}` };
+
+  revalidatePath('/dashboard');
+  return { success: true, message: 'Arbeitszeitschutz-Regeln erfolgreich aktualisiert.' };
+}
+
+/**
  * Admin action: updates company settings.
  */
 export async function updateCompanySettingsAction(
