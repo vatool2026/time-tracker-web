@@ -6,7 +6,7 @@ import { logoutAction } from '@/app/actions';
 import { useRouter } from 'next/navigation';
 import CustomSelect from './CustomSelect';
 import ThemeToggle from './ThemeToggle';
-import { LogOut, ChevronDown, ChevronUp, Search, Building, Lock, Unlock, Key } from 'lucide-react';
+import { LogOut, ChevronDown, ChevronUp, Search, Building, Lock, Unlock, Key, MoreVertical, Edit2, Trash2 } from 'lucide-react';
 
 export default function RootDashboard({ companies, profiles, rootProfile }: any) {
   const router = useRouter();
@@ -26,6 +26,7 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
 
   const [resetPasswordId, setResetPasswordId] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   const handleDeleteCompany = async (id: string) => {
     if (!confirm('Unternehmen wirklich löschen? Alle zugehörigen Daten (außer User) werden gelöscht.')) return;
@@ -156,25 +157,87 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
   }, [profiles, searchQuery]);
 
   const renderProfile = (p: any) => (
-    <div key={p.id} style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--border-color)', marginBottom: '0.5rem', opacity: p.is_locked ? 0.6 : 1 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h3 style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            {p.first_name} {p.last_name}
-            {p.is_locked && <Lock size={14} color="var(--danger)" />}
-          </h3>
-          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{p.email}</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-            Letzter Login: {p.last_login ? new Date(p.last_login).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) : 'Nie'}
+    <div key={p.id} style={{ 
+      padding: '1rem', 
+      background: 'rgba(255,255,255,0.02)', 
+      borderBottom: '1px solid var(--border-color)', 
+      display: 'flex',
+      flexDirection: 'column',
+      opacity: p.is_locked ? 0.6 : 1 
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 250px', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ width: 42, height: 42, borderRadius: '50%', background: 'var(--accent-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 600, fontSize: '1.1rem', flexShrink: 0 }}>
+            {p.first_name?.charAt(0) || ''}{p.last_name?.charAt(0) || ''}
+          </div>
+          <div>
+            <h3 style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem', margin: 0 }}>
+              {p.first_name} {p.last_name}
+              {p.is_locked && <Lock size={14} color="var(--danger)" />}
+            </h3>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{p.email}</div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <button onClick={() => { setResetPasswordId(p.id); setNewPassword(''); }} className="btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }} title="Passwort zurücksetzen"><Key size={14} /></button>
-          <button onClick={() => handleToggleLock(p)} className="btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', color: p.is_locked ? 'var(--accent-primary)' : 'var(--danger)' }} disabled={loadingId === p.id || p.id === rootProfile.id} title={p.is_locked ? "Entsperren" : "Sperren"}>
-            {p.is_locked ? <Unlock size={14} /> : <Lock size={14} />}
+
+        <div style={{ flex: '1 1 120px', display: 'flex', flexDirection: 'column' }}>
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Rolle</span>
+          <span style={{ 
+            fontSize: '0.75rem', 
+            padding: '0.2rem 0.5rem', 
+            borderRadius: '4px',
+            background: p.role === 'ROOT' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(139, 92, 246, 0.15)',
+            color: p.role === 'ROOT' ? 'var(--danger)' : 'var(--accent-secondary)',
+            display: 'inline-block',
+            width: 'fit-content',
+            marginTop: '0.25rem'
+          }}>
+            {p.role}
+          </span>
+        </div>
+
+        <div style={{ flex: '1 1 150px', display: 'flex', flexDirection: 'column' }}>
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Letzter Login</span>
+          <span style={{ fontSize: '0.85rem', marginTop: '0.25rem' }}>
+            {p.last_login ? new Date(p.last_login).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) : 'Nie'}
+          </span>
+        </div>
+
+        <div style={{ position: 'relative' }}>
+          <button 
+            onClick={(e) => { e.stopPropagation(); setOpenDropdownId(openDropdownId === p.id ? null : p.id); }}
+            className="btn-secondary"
+            style={{ padding: '0.5rem', borderRadius: '50%', border: 'none', background: 'transparent', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <MoreVertical size={18} />
           </button>
-          <button onClick={() => startEditProfile(p)} className="btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}>Bearbeiten</button>
-          <button onClick={() => handleDeleteProfile(p.id)} className="btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', color: 'var(--danger)' }} disabled={loadingId === p.id || p.id === rootProfile.id}>Löschen</button>
+          {openDropdownId === p.id && (
+            <>
+              <div style={{ position: 'fixed', inset: 0, zIndex: 9 }} onClick={(e) => { e.stopPropagation(); setOpenDropdownId(null); }} />
+              <div className="glass-dropdown" style={{ 
+                position: 'absolute', right: 0, top: '100%', 
+                padding: '0.5rem',
+                zIndex: 10,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.25rem',
+                minWidth: '200px',
+                marginTop: '0.5rem'
+              }}>
+                <button className="dropdown-item" onClick={() => { setResetPasswordId(p.id); setNewPassword(''); setOpenDropdownId(null); }}>
+                  <Key size={16} /> Passwort zurücksetzen
+                </button>
+                <button className="dropdown-item" onClick={() => { handleToggleLock(p); setOpenDropdownId(null); }} disabled={loadingId === p.id || p.id === rootProfile.id} style={{ color: p.is_locked ? 'var(--accent-primary)' : 'var(--warning)' }}>
+                  {p.is_locked ? <Unlock size={16} /> : <Lock size={16} />} {p.is_locked ? 'Entsperren' : 'Sperren'}
+                </button>
+                <button className="dropdown-item" onClick={() => { startEditProfile(p); setOpenDropdownId(null); }}>
+                  <Edit2 size={16} /> Bearbeiten
+                </button>
+                <button className="dropdown-item" onClick={() => { handleDeleteProfile(p.id); setOpenDropdownId(null); }} disabled={loadingId === p.id || p.id === rootProfile.id} style={{ color: 'var(--danger)' }}>
+                  <Trash2 size={16} /> Löschen
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -193,8 +256,9 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
         </div>
       )}
 
-      {editingProfile === p.id ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem' }}>
+      {editingProfile === p.id && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem', padding: '1rem', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+          <h4 style={{ fontSize: '0.9rem', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Benutzer bearbeiten</h4>
           <CustomSelect
             value={editProfileRole}
             onChange={setEditProfileRole}
@@ -212,25 +276,10 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
               ...(companies.map((c: any) => ({ value: c.id, label: c.name })))
             ]}
           />
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
             <button onClick={() => saveEditProfile(p.id)} className="btn-primary" disabled={loadingId === p.id}>Speichern</button>
             <button onClick={() => setEditingProfile(null)} className="btn-secondary">Abbrechen</button>
           </div>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-          <span style={{ 
-            fontSize: '0.75rem', 
-            padding: '0.2rem 0.5rem', 
-            borderRadius: '4px',
-            background: p.role === 'ROOT' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(139, 92, 246, 0.15)',
-            color: p.role === 'ROOT' ? 'var(--danger)' : 'var(--accent-secondary)'
-          }}>
-            {p.role}
-          </span>
-          <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            {p.companies?.name || 'Kein Unternehmen'}
-          </span>
         </div>
       )}
     </div>
@@ -374,10 +423,37 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
                   
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     {editingCompany !== c.id && (
-                      <>
-                        <button onClick={(e) => startEditCompany(e, c)} className="btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}>Bearbeiten</button>
-                        <button onClick={(e) => { e.stopPropagation(); handleDeleteCompany(c.id); }} className="btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem', color: 'var(--danger)' }} disabled={loadingId === c.id}>Löschen</button>
-                      </>
+                      <div style={{ position: 'relative' }}>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setOpenDropdownId(openDropdownId === c.id ? null : c.id); }}
+                          className="btn-secondary"
+                          style={{ padding: '0.5rem', borderRadius: '50%', border: 'none', background: 'transparent', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          <MoreVertical size={18} />
+                        </button>
+                        {openDropdownId === c.id && (
+                          <>
+                            <div style={{ position: 'fixed', inset: 0, zIndex: 9 }} onClick={(e) => { e.stopPropagation(); setOpenDropdownId(null); }} />
+                            <div className="glass-dropdown" style={{ 
+                              position: 'absolute', right: 0, top: '100%', 
+                              padding: '0.5rem',
+                              zIndex: 10,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '0.25rem',
+                              minWidth: '150px',
+                              marginTop: '0.5rem'
+                            }}>
+                              <button className="dropdown-item" onClick={(e) => { e.stopPropagation(); startEditCompany(e, c); setOpenDropdownId(null); }}>
+                                <Edit2 size={16} /> Bearbeiten
+                              </button>
+                              <button className="dropdown-item" onClick={(e) => { e.stopPropagation(); handleDeleteCompany(c.id); setOpenDropdownId(null); }} style={{ color: 'var(--danger)' }} disabled={loadingId === c.id}>
+                                <Trash2 size={16} /> Löschen
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     )}
                     {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                   </div>
@@ -390,7 +466,7 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
                     {companyEmployees.length === 0 ? (
                       <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Keine Mitarbeiter vorhanden.</p>
                     ) : (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
                         {companyEmployees.map((p: any) => renderProfile(p))}
                       </div>
                     )}
@@ -430,7 +506,7 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
 
               {expandedCompanyId === 'unassigned' && (
                 <div style={{ padding: '1.5rem', background: 'rgba(0,0,0,0.1)', borderTop: '1px solid var(--border-color)' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
                     {unassignedProfiles.map((p: any) => renderProfile(p))}
                   </div>
                 </div>
