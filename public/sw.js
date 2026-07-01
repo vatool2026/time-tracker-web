@@ -9,6 +9,11 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Pass-through fetch for now, enough to satisfy PWA criteria
-  event.respondWith(fetch(event.request).catch(() => new Response('Offline')));
+  // Pass-through fetch with a proper HTML offline fallback
+  event.respondWith(
+    fetch(event.request).catch(() => new Response(
+      '<html><body><h1>Offline</h1><p>Bitte überprüfe deine Internetverbindung.</p></body></html>', 
+      { headers: { 'Content-Type': 'text/html' } }
+    ))
+  );
 });
