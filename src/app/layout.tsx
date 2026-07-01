@@ -3,6 +3,7 @@ import Script from 'next/script';
 import './globals.css';
 
 import { ThemeProvider } from '@/components/ThemeProvider';
+import { OfflineSyncManager } from '@/components/OfflineSyncManager';
 
 export const metadata: Metadata = {
   title: 'Zeiterfassung Pro',
@@ -34,6 +35,7 @@ export default function RootLayout({
             <div className="blob blob-1"></div>
             <div className="blob blob-2"></div>
             {children}
+            <OfflineSyncManager />
           </div>
         </ThemeProvider>
         <Script id="sw-register" strategy="afterInteractive">

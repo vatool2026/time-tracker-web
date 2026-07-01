@@ -8,6 +8,7 @@ import {
   createManualTimeEntryAction,
   setDayAbsenceCodeAction
 } from '@/app/actions';
+import { addOfflineAction } from '@/utils/offlineQueue';
 import { isGermanHoliday } from '@/utils/holidays';
 import { calculateSurcharges } from '@/utils/surchargeCalculator';
 import { Calendar, ChevronLeft, ChevronRight, ChevronDown, Trash2, Edit3 } from 'lucide-react';
@@ -492,6 +493,14 @@ export default function TimesheetTable({
   const handleSetAbsenceCode = async (code: string) => {
     if (!editingDateStr) return;
     setEditError('');
+
+    if (!navigator.onLine) {
+      await addOfflineAction('setDayAbsenceCodeAction', { userId: currentUserId, dateStr: editingDateStr, code: code || null });
+      setEditingDateStr(null);
+      alert('Aktion offline gespeichert. Wird synchronisiert, sobald wieder Empfang besteht.');
+      return;
+    }
+
     const res = await setDayAbsenceCodeAction(currentUserId, editingDateStr, code || null);
     if (res.success) {
       // Close modal and refresh
@@ -503,6 +512,12 @@ export default function TimesheetTable({
   };
 
   const handleRowAbsenceCode = async (dateStr: string, code: string) => {
+    if (!navigator.onLine) {
+      await addOfflineAction('setDayAbsenceCodeAction', { userId: currentUserId, dateStr: dateStr, code: code || null });
+      alert('Aktion offline gespeichert. Wird synchronisiert, sobald wieder Empfang besteht.');
+      return;
+    }
+
     const res = await setDayAbsenceCodeAction(currentUserId, dateStr, code || null);
     if (res.success) {
       router.refresh();
@@ -510,7 +525,6 @@ export default function TimesheetTable({
       alert(res.message);
     }
   };
-  
   const startEditEntry = (entry: TimeEntry) => {
     setFormMode('EDIT');
     setEditingEntryId(entry.original_id || entry.id);

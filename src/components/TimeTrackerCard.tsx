@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Play, Square, Coffee, Edit3, LogIn, LogOut, AlertCircle, Check, ChevronDown, ChevronUp, QrCode } from 'lucide-react';
 import { clockInAction, clockOutAction, recordBreakAction, createManualTimeEntryAction } from '@/app/actions';
+import { addOfflineAction } from '@/utils/offlineQueue';
 import QRScannerModal from './QRScannerModal';
 
 interface TimeTrackerCardProps {
@@ -124,6 +125,12 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
   };
 
   const handleClockIn = async () => {
+    if (!navigator.onLine) {
+      await addOfflineAction('clockInAction', { note, qr_code_id: null });
+      showMsg('success', 'Offline gespeichert. Wird synchronisiert, sobald wieder Empfang besteht.');
+      setNote('');
+      return;
+    }
     const res = await clockInAction(note);
     if (res.success) {
       showMsg('success', 'Einstempeln erfolgreich verbucht!');
@@ -137,6 +144,12 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
     // If on break, end break first
     if (isOnBreak) {
       await handleEndBreak();
+    }
+    if (!navigator.onLine) {
+      await addOfflineAction('clockOutAction', { note });
+      showMsg('success', 'Offline gespeichert. Wird synchronisiert, sobald wieder Empfang besteht.');
+      setNote('');
+      return;
     }
     const res = await clockOutAction(note);
     if (res.success) {
@@ -164,6 +177,12 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
     setBreakStartVal(null);
     sessionStorage.removeItem('break_start_time');
 
+    if (!navigator.onLine) {
+      await addOfflineAction('recordBreakAction', { minutes: elapsedMinutes });
+      showMsg('success', 'Pause beendet (Offline gespeichert).');
+      return;
+    }
+
     const res = await recordBreakAction(elapsedMinutes);
     if (res.success) {
       showMsg('success', `Pause beendet: ${elapsedMinutes} Minuten wurden erfasst.`);
@@ -173,6 +192,11 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
   };
 
   const handleQuickBreak = async (minutes: number) => {
+    if (!navigator.onLine) {
+      await addOfflineAction('recordBreakAction', { minutes });
+      showMsg('success', `${minutes} Minuten Pause hinzugefügt (Offline gespeichert).`);
+      return;
+    }
     const res = await recordBreakAction(minutes);
     if (res.success) {
       showMsg('success', `${minutes} Minuten Pause hinzugefügt.`);
