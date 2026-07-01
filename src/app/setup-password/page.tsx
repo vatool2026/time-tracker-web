@@ -3,7 +3,7 @@
 import React, { useState, Suspense } from 'react';
 import { setupPasswordAction } from '@/app/actions';
 import ThemeToggle from '@/components/ThemeToggle';
-import { Lock, AlertCircle, CheckCircle } from 'lucide-react';
+import { Lock, AlertCircle, CheckCircle, Shield } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 
 function SetupPasswordForm() {
@@ -31,7 +31,7 @@ function SetupPasswordForm() {
       setSuccess(true);
       setTimeout(() => {
         window.location.href = '/dashboard';
-      }, 2000);
+      }, 5000);
     }
   };
 
@@ -39,21 +39,39 @@ function SetupPasswordForm() {
     <>
       {/* Success Message */}
       {success && (
-        <div className="glass" style={{
-          padding: '0.75rem 1rem',
-          borderRadius: 'var(--border-radius-sm)',
-          backgroundColor: 'rgba(34, 197, 94, 0.15)',
-          border: '1px solid var(--success)',
-          color: 'var(--success)',
-          fontSize: '0.9rem',
-          marginBottom: '1.5rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem'
-        }}>
-          <CheckCircle size={18} />
-          <span>Passwort erfolgreich erstellt. Sie werden weitergeleitet...</span>
-        </div>
+        <>
+          <div className="glass" style={{
+            padding: '0.75rem 1rem',
+            borderRadius: 'var(--border-radius-sm)',
+            backgroundColor: 'rgba(34, 197, 94, 0.15)',
+            border: '1px solid var(--success)',
+            color: 'var(--success)',
+            fontSize: '0.9rem',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}>
+            <CheckCircle size={18} />
+            <span>Passwort erfolgreich erstellt. Sie werden gleich weitergeleitet...</span>
+          </div>
+
+          <div style={{
+            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+            border: '1px solid rgba(139, 92, 246, 0.3)',
+            borderRadius: 'var(--border-radius-sm)',
+            padding: '1rem',
+            textAlign: 'left',
+            marginBottom: '2rem'
+          }}>
+            <h4 style={{ color: 'var(--accent-primary)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Shield size={18} /> Tipp für mehr Sicherheit
+            </h4>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', margin: 0 }}>
+              Sie können Ihren Account zusätzlich absichern. Navigieren Sie nach dem Login in die Einstellungen und öffnen Sie den Reiter <strong>Sicherheit</strong>. Dort können Sie optional die <strong>2-Faktor-Authentifizierung (2FA)</strong> oder <strong>Passkeys</strong> für den schnellen Login einrichten.
+            </p>
+          </div>
+        </>
       )}
 
       {/* Error Alert */}

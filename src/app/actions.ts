@@ -122,7 +122,7 @@ export async function loginAction(formData: FormData): Promise<ActionResponse> {
 
   const supabase = await createClient();
 
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
@@ -131,8 +131,13 @@ export async function loginAction(formData: FormData): Promise<ActionResponse> {
     return { success: false, message: formatErrorMessage(error, 'Fehler bei der Anmeldung') };
   }
 
+  const mfaLevel = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (mfaLevel.data?.nextLevel === 'aal2') {
+    return { success: true, message: 'MFA erforderlich', data: { mfaRequired: true } };
+  }
+
   revalidatePath('/dashboard', 'layout');
-  return { success: true, message: 'Erfolgreich angemeldet.' };
+  return { success: true, message: 'Erfolgreich angemeldet.', data: { mfaRequired: false } };
 }
 
 export async function registerAction(formData: FormData): Promise<ActionResponse> {

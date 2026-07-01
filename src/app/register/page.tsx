@@ -4,11 +4,12 @@ import React, { useState } from 'react';
 import { registerAction } from '@/app/actions';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ThemeToggle';
-import { Building, User, Mail, Lock, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Building, User, Mail, Lock, CheckCircle, AlertCircle, ArrowLeft, Shield } from 'lucide-react';
 
 export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [needsConfirmation, setNeedsConfirmation] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -38,12 +39,8 @@ export default function RegisterPage() {
       setError(res.message);
     } else {
       const data = res.data as { confirmationRequired?: boolean } | undefined;
-      if (data?.confirmationRequired) {
-        setSuccess(res.message);
-      } else {
-        // Re-route to dashboard automatically
-        window.location.href = '/dashboard';
-      }
+      setSuccess(res.message || "Konto erfolgreich erstellt!");
+      setNeedsConfirmation(data?.confirmationRequired ?? false);
     }
   };
 
@@ -63,14 +60,32 @@ export default function RegisterPage() {
             <CheckCircle size={64} style={{ color: '#8b5cf6' }} />
           </div>
 
-          <h1 className="text-gradient" style={{ fontSize: '2rem', marginBottom: '1rem' }}>E-Mail bestätigen</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', lineHeight: '1.6', marginBottom: '2rem' }}>
+          <h1 className="text-gradient" style={{ fontSize: '2rem', marginBottom: '1rem' }}>
+            {needsConfirmation ? 'E-Mail bestätigen' : 'Registrierung erfolgreich'}
+          </h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', lineHeight: '1.6', marginBottom: '1rem' }}>
             {success}
           </p>
 
+          <div style={{
+            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+            border: '1px solid rgba(139, 92, 246, 0.3)',
+            borderRadius: 'var(--border-radius-sm)',
+            padding: '1rem',
+            textAlign: 'left',
+            marginBottom: '2rem'
+          }}>
+            <h4 style={{ color: 'var(--accent-primary)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Shield size={18} /> Tipp für mehr Sicherheit
+            </h4>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', margin: 0 }}>
+              Sie können Ihren Account zusätzlich absichern. Navigieren Sie nach dem Login in die Einstellungen und öffnen Sie den Reiter <strong>Sicherheit</strong>. Dort können Sie optional die <strong>2-Faktor-Authentifizierung (2FA)</strong> oder <strong>Passkeys</strong> für den schnellen Login einrichten.
+            </p>
+          </div>
+
           <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: '1.5rem' }}>
-            <Link href="/login" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '46px', gap: '0.5rem' }}>
-              <ArrowLeft size={16} /> Weiter zum Login
+            <Link href={needsConfirmation ? "/login" : "/dashboard"} className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '46px', gap: '0.5rem' }}>
+              {needsConfirmation ? <><ArrowLeft size={16} /> Weiter zum Login</> : 'Zum Dashboard'}
             </Link>
           </div>
 
