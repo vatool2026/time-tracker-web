@@ -89,7 +89,7 @@ export default function SecuritySettings({ profile }: { profile: any }) {
       // Bereinige zuerst eventuell vorhandene unbestätigte Faktoren (z.B. durch vorherigen Abbruch/Absturz)
       const { data: factorsData } = await supabase.auth.mfa.listFactors();
       if (factorsData && factorsData.totp) {
-        const unverifiedTotp = factorsData.totp.filter(f => f.status === 'unverified');
+        const unverifiedTotp = factorsData.totp.filter(f => f.status !== 'verified');
         for (const factor of unverifiedTotp) {
           await supabase.auth.mfa.unenroll({ factorId: factor.id });
         }
