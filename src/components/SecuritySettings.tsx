@@ -147,18 +147,8 @@ export default function SecuritySettings({ profile }: { profile: any }) {
   const setupPasskey = async () => {
     setLoading(true);
     try {
-      // enrolling a passkey
-      const { data, error } = await supabase.auth.mfa.enroll({
-        factorType: 'webauthn'
-      });
+      const { data, error } = await supabase.auth.registerPasskey();
       if (error) throw error;
-      
-      const challengeAndVerifyRes = await supabase.auth.mfa.challengeAndVerify({
-        factorId: data.id,
-        code: ''
-      });
-      
-      if (challengeAndVerifyRes.error) throw challengeAndVerifyRes.error;
       
       showMsg('success', 'Passkey erfolgreich hinzugefügt!');
       loadSecurityFactors();
