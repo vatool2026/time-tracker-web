@@ -95,21 +95,27 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
   };
 
   const saveEditCompany = async (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
     e.stopPropagation();
-    setLoadingId(id);
-    const res = await updateCompanyAction(id, { 
-      name: editCompanyName,
-      feature_urlaub: editFeatureUrlaub,
-      feature_abwesenheit: editFeatureAbwesenheit,
-      feature_sonstiges: editFeatureSonstiges
-    });
-    if (res.success) {
-      setEditingCompany(null);
-      router.refresh();
-    } else {
-      alert(res.message);
+    try {
+      setLoadingId(id);
+      const res = await updateCompanyAction(id, { 
+        name: editCompanyName,
+        feature_urlaub: editFeatureUrlaub,
+        feature_abwesenheit: editFeatureAbwesenheit,
+        feature_sonstiges: editFeatureSonstiges
+      });
+      if (res?.success) {
+        setEditingCompany(null);
+        router.refresh();
+      } else {
+        alert(res?.message || 'Unbekannter Fehler beim Speichern');
+      }
+    } catch (err: any) {
+      alert("Fehler beim Speichern: " + err.message);
+    } finally {
+      setLoadingId(null);
     }
-    setLoadingId(null);
   };
 
   const cancelEditCompany = (e: React.MouseEvent) => {

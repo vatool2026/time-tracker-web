@@ -734,10 +734,98 @@ export default function DashboardContainer({
             )}
 
             {employeeSubTab === 'urlaub' && (
-              <div className="glass glass-card" style={{ textAlign: 'center', padding: '4rem 2rem', color: 'var(--text-secondary)' }}>
-                <Calendar size={48} style={{ opacity: 0.2, margin: '0 auto 1rem auto' }} />
-                <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Urlaubsverwaltung</h3>
-                <p>Hier können Sie zukünftig Urlaub beantragen und Ihren Resturlaub einsehen.</p>
+              <div className="glass glass-card" style={{ padding: '2rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '1rem', marginBottom: '2rem' }}>
+                  <Calendar size={28} style={{ color: 'var(--accent-primary)' }} />
+                  <h3 style={{ fontSize: '1.5rem', margin: 0, fontWeight: 700 }}>Urlaubsverwaltung</h3>
+                </div>
+
+                {(() => {
+                  const entitlement = timesheetSettings?.vacation_days_entitlement || 0;
+                  const carryOver = timesheetSettings?.carry_over_vacation_days || 0;
+                  const totalEntitlement = entitlement + carryOver;
+
+                  // Find all vacation entries for the current year
+                  const currentYear = new Date().getFullYear();
+                  const vacationEntries = entries.filter(e => 
+                    e.absence_code === 'U' && 
+                    !e.deleted_at &&
+                    e.entry_date.startsWith(currentYear.toString())
+                  ).sort((a, b) => b.entry_date.localeCompare(a.entry_date));
+
+                  const takenDays = vacationEntries.length;
+                  const remainingDays = totalEntitlement - takenDays;
+
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                        <div style={{ background: 'rgba(255, 255, 255, 0.05)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--glass-border)', textAlign: 'center' }}>
+                          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Jahresanspruch</div>
+                          <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--text-primary)' }}>{entitlement}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>Tage</div>
+                        </div>
+
+                        <div style={{ background: 'rgba(255, 255, 255, 0.05)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--glass-border)', textAlign: 'center' }}>
+                          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Übertrag (Vorjahr)</div>
+                          <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--text-primary)' }}>{carryOver}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>Tage</div>
+                        </div>
+
+                        <div style={{ background: 'rgba(255, 255, 255, 0.05)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--glass-border)', textAlign: 'center' }}>
+                          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Verplant / Genommen</div>
+                          <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--text-primary)' }}>{takenDays}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>Tage</div>
+                        </div>
+
+                        <div style={{ background: 'var(--accent-gradient)', padding: '1.5rem', borderRadius: '12px', textAlign: 'center', color: 'white', boxShadow: '0 8px 16px rgba(139, 92, 246, 0.3)' }}>
+                          <div style={{ fontSize: '0.85rem', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Resturlaub</div>
+                          <div style={{ fontSize: '2.5rem', fontWeight: 800, textShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>{remainingDays}</div>
+                          <div style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '0.25rem' }}>Tage</div>
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: '1rem' }}>
+                        <h4 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1rem', color: 'var(--text-primary)' }}>Genommene / Geplante Urlaubstage ({currentYear})</h4>
+                        
+                        {vacationEntries.length > 0 ? (
+                          <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                              <thead>
+                                <tr style={{ background: 'rgba(0,0,0,0.1)', borderBottom: '1px solid var(--glass-border)' }}>
+                                  <th style={{ padding: '1rem', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Datum</th>
+                                  <th style={{ padding: '1rem', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Notiz</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {vacationEntries.map((entry) => {
+                                  const dateObj = new Date(entry.entry_date);
+                                  const isFuture = dateObj > new Date();
+                                  
+                                  return (
+                                    <tr key={entry.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                      <td style={{ padding: '1rem', fontWeight: 500 }}>
+                                        {dateObj.toLocaleDateString('de-DE', { weekday: 'short', year: 'numeric', month: '2-digit', day: '2-digit' })}
+                                        {isFuture && <span style={{ marginLeft: '0.5rem', fontSize: '0.7rem', padding: '0.1rem 0.4rem', borderRadius: '4px', background: 'rgba(59, 130, 246, 0.15)', color: 'var(--accent-primary)' }}>GEPLANT</span>}
+                                      </td>
+                                      <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>
+                                        {entry.note || '-'}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <div style={{ textAlign: 'center', padding: '3rem 1rem', background: 'rgba(0,0,0,0.05)', borderRadius: '8px', border: '1px dashed var(--border-color)' }}>
+                            <Calendar size={32} style={{ opacity: 0.3, margin: '0 auto 1rem auto' }} />
+                            <p style={{ color: 'var(--text-secondary)' }}>Es wurden noch keine Urlaubstage für {currentYear} eingetragen.</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
