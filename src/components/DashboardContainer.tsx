@@ -296,7 +296,10 @@ export default function DashboardContainer({
         target_hours_thursday: 8,
         target_hours_friday: 8,
         target_hours_saturday: 0,
-        target_hours_sunday: 0
+        target_hours_sunday: 0,
+        vacation_days_entitlement: 30,
+        carry_over_vacation_days: 0,
+        carry_over_hours: 0
       };
 
       const empSurchSettings = allCategorySettings.find(s => s.category === emp.employment_category) || {
@@ -361,6 +364,10 @@ export default function DashboardContainer({
 
       const overtime = workedHoursTotal - targetHoursTotal;
 
+      const currentYearStr = year.toString();
+      const annualTakenVacationDays = empEntries.filter(e => e.absence_code === 'U' && e.entry_date.startsWith(currentYearStr)).length;
+      const totalVacationEntitlement = (empSettings.vacation_days_entitlement || 0) + (empSettings.carry_over_vacation_days || 0);
+
       return {
         id: emp.id,
         name: `${emp.first_name} ${emp.last_name}`,
@@ -372,8 +379,10 @@ export default function DashboardContainer({
         nightHours: nightHoursTotal,
         sundayHours: sundayHoursTotal,
         holidayHours: holidayHoursTotal,
-        vacationDays,
-        sickDays
+        vacationDays, // taken in the selected period
+        sickDays,
+        annualTakenVacationDays,
+        totalVacationEntitlement
       };
     });
   };
@@ -1399,7 +1408,9 @@ export default function DashboardContainer({
                           <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>{r.nightHours.toFixed(1)}</td>
                           <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>{r.sundayHours.toFixed(1)}</td>
                           <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>{r.holidayHours.toFixed(1)}</td>
-                          <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center', color: 'var(--success)' }}>{r.vacationDays}</td>
+                          <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center', color: 'var(--success)' }}>
+                            {r.annualTakenVacationDays} / {r.totalVacationEntitlement}
+                          </td>
                           <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center', color: 'var(--danger)' }}>{r.sickDays}</td>
                         </tr>
                       ))}
