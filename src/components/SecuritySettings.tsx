@@ -85,6 +85,16 @@ export default function SecuritySettings({ profile }: { profile: any }) {
   const startMfaEnrollment = async () => {
     try {
       setIsEnrollingMfa(true);
+      
+      // Bereinige zuerst eventuell vorhandene unbestätigte Faktoren (z.B. durch vorherigen Abbruch/Absturz)
+      const { data: factorsData } = await supabase.auth.mfa.listFactors();
+      if (factorsData && factorsData.totp) {
+        const unverifiedTotp = factorsData.totp.filter(f => f.status === 'unverified');
+        for (const factor of unverifiedTotp) {
+          await supabase.auth.mfa.unenroll({ factorId: factor.id });
+        }
+      }
+
       const { data, error } = await supabase.auth.mfa.enroll({
         factorType: 'totp',
       });
