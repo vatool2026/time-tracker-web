@@ -56,12 +56,19 @@ export default async function DashboardPage() {
     .eq('category', profile.employment_category)
     .maybeSingle();
 
+  // Fetch current user's payouts
+  const { data: payouts } = await supabase
+    .from('overtime_payouts')
+    .select('*')
+    .eq('user_id', user.id);
+
   // Admin data fetching
   const isAdmin = profile.role === 'COMPANY_ADMIN' || profile.role === 'ROOT';
   let employees = null;
   let allCategorySettings = null;
   let allTimesheetSettings = null;
   let allCompanyEntries = null;
+  let allCompanyPayouts = null;
   let absenceCodes = null;
   let qrCodes = null;
 
@@ -102,6 +109,13 @@ export default async function DashboardPage() {
         .order('entry_date', { ascending: false });
 
       allCompanyEntries = compEntries;
+
+      const { data: compPayouts } = await supabase
+        .from('overtime_payouts')
+        .select('*')
+        .in('user_id', employeeIds);
+      
+      allCompanyPayouts = compPayouts;
     }
 
     // Fetch all company absence codes
@@ -141,10 +155,12 @@ export default async function DashboardPage() {
         entries={entries || []}
         timesheetSettings={timesheetSettings}
         surchargeSettings={surchargeSettings}
+        payouts={payouts || []}
         employees={employees}
         allCategorySettings={allCategorySettings}
         allTimesheetSettings={allTimesheetSettings}
         allCompanyEntries={allCompanyEntries}
+        allCompanyPayouts={allCompanyPayouts}
         absenceCodes={absenceCodes}
         qrCodes={qrCodes}
       />

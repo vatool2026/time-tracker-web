@@ -49,13 +49,15 @@ interface AnalyticsChartsProps {
   timesheetSettings: TimesheetSettings | null;
   surchargeSettings: SurchargeSettings | null;
   absenceCodes?: AbsenceCode[] | null;
+  startDate?: string | null;
 }
 
 export default function AnalyticsCharts({
   entries,
   timesheetSettings,
   surchargeSettings,
-  absenceCodes
+  absenceCodes,
+  startDate
 }: AnalyticsChartsProps) {
   const [viewMode, setViewMode] = useState<'charts' | 'yearly'>('charts');
 
@@ -78,6 +80,9 @@ export default function AnalyticsCharts({
   };
 
   const getTargetHoursForDate = (date: Date): number => {
+    const dStr = date.toISOString().split('T')[0];
+    if (startDate && new Date(dStr) < new Date(startDate)) return 0;
+
     if (isGermanHoliday(date).isHoliday) return 0;
     const day = date.getDay();
     switch (day) {
@@ -449,6 +454,7 @@ export default function AnalyticsCharts({
           timesheetSettings={tsSet}
           surchargeSettings={surchSet}
           absenceCodes={absenceCodes || []}
+          startDate={startDate}
         />
       )}
     </div>

@@ -14,6 +14,7 @@ interface EmployeeProfile {
   role: 'ROOT' | 'COMPANY_ADMIN' | 'EMPLOYEE';
   employment_category: 'FULLTIME' | 'AZUBI' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER';
   is_minor?: boolean;
+  start_date?: string | null;
 }
 
 interface EmployeeSettings {
@@ -46,6 +47,7 @@ export default function EmployeeSettingsModal({
   const [category, setCategory] = useState<'FULLTIME' | 'AZUBI' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER'>(employee.employment_category);
   const [isMinor, setIsMinor] = useState<boolean>(employee.is_minor || false);
   const [employeeNumber, setEmployeeNumber] = useState<string>(employee.employee_number || '');
+  const [startDate, setStartDate] = useState<string>(employee.start_date || '');
   const [carryOverHours, setCarryOverHours] = useState<number>(settings?.carry_over_hours || 0);
   const [vacationEntitlement, setVacationEntitlement] = useState<number>(settings?.vacation_days_entitlement || 30);
   const [carryOverVacation, setCarryOverVacation] = useState<number>(settings?.carry_over_vacation_days || 0);
@@ -86,7 +88,8 @@ export default function EmployeeSettingsModal({
       Number(carryOverVacation),
       targets,
       employeeNumber || null,
-      isMinor
+      isMinor,
+      startDate || null
     );
 
     setLoading(false);
@@ -213,6 +216,17 @@ export default function EmployeeSettingsModal({
                 onChange={(e) => setEmployeeNumber(e.target.value)}
                 className="input-field"
                 placeholder="Optional"
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>
+                Eintrittsdatum
+              </label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="input-field"
               />
             </div>
           </div>

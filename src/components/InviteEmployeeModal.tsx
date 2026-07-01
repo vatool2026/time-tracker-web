@@ -27,8 +27,10 @@ export default function InviteEmployeeModal({ onClose, onSuccess }: InviteEmploy
     const email = formData.get('email') as string;
     const role = formData.get('role') as 'ROOT' | 'COMPANY_ADMIN' | 'EMPLOYEE';
     const employmentCategory = formData.get('employmentCategory') as 'FULLTIME' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER';
+    const startDateRaw = formData.get('startDate') as string;
+    const startDate = startDateRaw ? startDateRaw : null;
 
-    const res = await inviteEmployeeAction(firstName, lastName, email, role, employmentCategory);
+    const res = await inviteEmployeeAction(firstName, lastName, email, role, employmentCategory, startDate);
     setLoading(false);
 
     if (res.success) {
@@ -139,6 +141,11 @@ export default function InviteEmployeeModal({ onClose, onSuccess }: InviteEmploy
                 ]}
               />
             </div>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Eintrittsdatum (optional)</label>
+            <input type="date" name="startDate" className="input-field" disabled={loading} />
           </div>
 
           <button type="submit" className="btn btn-primary" style={{ marginTop: '1rem', height: '44px' }} disabled={loading}>

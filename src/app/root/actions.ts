@@ -160,3 +160,29 @@ export async function toggleUserLockAction(profileId: string, lock: boolean): Pr
   revalidatePath('/root');
   return { success: true, message: lock ? 'Benutzer gesperrt.' : 'Benutzer entsperrt.' };
 }
+
+export async function resetUserHoursAction(profileId: string, month?: string): Promise<ActionResponse> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, message: 'Nicht authentifiziert' };
+
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+  if (profile?.role !== 'ROOT') return { success: false, message: 'Keine Berechtigung' };
+
+  let query = supabase.from('time_entries').delete().eq('user_id', profileId);
+
+  if (month && month !== 'ALL') {
+    // month format: YYYY-MM
+    // We can use gte and lt on date string (format YYYY-MM-DD)
+    const startOfMonth = `${month}-01`;
+    // To get end of month, we can just say date starts with month
+    query = query.like('date', `${month}-%`);
+  }
+
+  const { error } = await query;
+
+  if (error) return { success: false, message: error.message };
+
+  revalidatePath('/root');
+  return { success: true, message: 'Stunden erfolgreich zurückgesetzt.' };
+}

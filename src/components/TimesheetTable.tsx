@@ -61,6 +61,16 @@ export interface AbsenceCode {
   factor: number;
 }
 
+interface OvertimePayout {
+  id: string;
+  user_id: string;
+  year: number;
+  month: number;
+  hours: number;
+  note: string | null;
+  created_at: string;
+}
+
 interface TimesheetTableProps {
   entries: TimeEntry[];
   timesheetSettings: TimesheetSettings | null;
@@ -68,6 +78,8 @@ interface TimesheetTableProps {
   currentUserId: string;
   isAdmin?: boolean;
   absenceCodes?: AbsenceCode[] | null;
+  startDate?: string | null;
+  payouts?: OvertimePayout[];
 }
 
 export default function TimesheetTable({
@@ -76,7 +88,9 @@ export default function TimesheetTable({
   surchargeSettings,
   currentUserId,
   isAdmin = false,
-  absenceCodes = null
+  absenceCodes = null,
+  startDate,
+  payouts = []
 }: TimesheetTableProps) {
   const router = useRouter();
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -166,6 +180,12 @@ export default function TimesheetTable({
 
   // Helper to get target hours of weekday
   const getTargetHoursForDate = (date: Date): number => {
+    // If before start date, target is 0
+    if (startDate) {
+      const dStr = formatLocalDate(date);
+      if (new Date(dStr) < new Date(startDate)) return 0;
+    }
+
     // If it's a holiday, target hours are 0 (non-working day)
     if (isGermanHoliday(date).isHoliday) {
       return 0;
@@ -407,6 +427,10 @@ export default function TimesheetTable({
       isAbsence: dayEntriesList.some(e => e.absence_code)
     };
   });
+
+  const currentMonthPayouts = payouts.filter(p => p.year === year && p.month === month + 1 && p.user_id === currentUserId);
+  const currentMonthPayoutTotal = currentMonthPayouts.reduce((sum, p) => sum + p.hours, 0);
+  totalOvertime -= currentMonthPayoutTotal;
 
   const [deleteReasonText, setDeleteReasonText] = useState<string>('');
 
@@ -724,7 +748,7 @@ export default function TimesheetTable({
                       fontWeight: 600,
                       color: overtime > 0 ? 'var(--success)' : (overtime < 0 ? 'var(--danger)' : 'inherit')
                     }}>
-                      {isAbsence ? '—' : (overtime !== 0 ? `${overtime > 0 ? '+' : ''}${overtime.toFixed(2)}` : '—')}
+                      {(isAbsence && targetHours === 0) ? '—' : (overtime !== 0 ? `${overtime > 0 ? '+' : ''}${overtime.toFixed(2)}` : '—')}
                     </td>
 
                     {/* Absence Code Selector */}
@@ -804,7 +828,7 @@ export default function TimesheetTable({
                                 fontWeight: 600,
                                 color: overtime > 0 ? 'var(--success)' : (overtime < 0 ? 'var(--danger)' : 'inherit')
                               }}>
-                                {overtime !== 0 ? `${overtime > 0 ? '+' : ''}${overtime.toFixed(2)}` : '0.00'}
+                                {(isAbsence && targetHours === 0) ? '—' : (overtime !== 0 ? `${overtime > 0 ? '+' : ''}${overtime.toFixed(2)}` : '0.00')}
                              </span>
                           </div>
 
@@ -940,6 +964,11 @@ export default function TimesheetTable({
             }}>
               {totalOvertime >= 0 ? '+' : ''}{totalOvertime.toFixed(2)} Std.
             </div>
+            {currentMonthPayoutTotal > 0 && (
+              <div style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', marginTop: '0.25rem' }}>
+                Davon ausgezahlt: {currentMonthPayoutTotal.toFixed(2)} Std.
+              </div>
+            )}
           </div>
 
           <div className="glass" style={{ padding: '1rem', borderRadius: 'var(--border-radius-sm)', textAlign: 'center' }}>

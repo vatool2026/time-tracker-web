@@ -1316,3 +1316,50 @@ export async function resetPasswordAction(formData: FormData): Promise<ActionRes
 
   return { success: true, message: 'E-Mail zum Zurücksetzen des Passworts wurde gesendet.' };
 }
+
+/**
+ * Saves an overtime payout for a specific user and month.
+ */
+export async function saveOvertimePayoutAction(userId: string, year: number, month: number, hours: number, note?: string): Promise<ActionResponse> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, message: 'Nicht autorisiert.' };
+
+  const { data: profile } = await supabase.from('profiles').select('role, company_id').eq('id', user.id).single();
+  if (!profile || (profile.role !== 'COMPANY_ADMIN' && profile.role !== 'ROOT')) {
+    return { success: false, message: 'Keine Berechtigung.' };
+  }
+
+  const { error } = await supabase.from('overtime_payouts').upsert(
+    { user_id: userId, year, month, hours, note },
+    { onConflict: 'user_id,year,month' }
+  );
+
+  if (error) {
+    return { success: false, message: formatErrorMessage(error, 'Fehler beim Speichern der Auszahlung') };
+  }
+  revalidatePath('/dashboard');
+  return { success: true, message: 'Auszahlung gespeichert.' };
+}
+
+/**
+ * Deletes an overtime payout.
+ */
+export async function deleteOvertimePayoutAction(id: string): Promise<ActionResponse> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, message: 'Nicht autorisiert.' };
+
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+  if (!profile || (profile.role !== 'COMPANY_ADMIN' && profile.role !== 'ROOT')) {
+    return { success: false, message: 'Keine Berechtigung.' };
+  }
+
+  const { error } = await supabase.from('overtime_payouts').delete().eq('id', id);
+
+  if (error) {
+    return { success: false, message: formatErrorMessage(error, 'Fehler beim Löschen der Auszahlung') };
+  }
+  revalidatePath('/dashboard');
+  return { success: true, message: 'Auszahlung gelöscht.' };
+}

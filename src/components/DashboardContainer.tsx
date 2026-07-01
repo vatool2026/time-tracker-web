@@ -21,12 +21,13 @@ import ImportTimeEntries from './ImportTimeEntries';
 import CarryoverAdminTab from './CarryoverAdminTab';
 import ComplianceAdminTab from './ComplianceAdminTab';
 import QRCodeAdminTab from './QRCodeAdminTab';
+import AdminOvertimeTab from './AdminOvertimeTab';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { 
   Building, LogOut, Users, Download, Upload,
   Shield, FileText, CheckCircle, AlertCircle, PlusCircle, LayoutDashboard,
-  Clock, Calendar, CalendarDays, BarChart, Settings, MoreHorizontal, Table, ChevronDown, RefreshCw, ShieldAlert, Car, QrCode
+  Clock, Calendar, CalendarDays, BarChart, Settings, MoreHorizontal, Table, ChevronDown, RefreshCw, ShieldAlert, Car, QrCode, DollarSign
 } from 'lucide-react';
 import { getEmploymentCategoryLabel } from '@/utils/employment';
 
@@ -83,6 +84,16 @@ export interface AbsenceCode {
   factor: number;
 }
 
+interface OvertimePayout {
+  id: string;
+  user_id: string;
+  year: number;
+  month: number;
+  hours: number;
+  note: string | null;
+  created_at: string;
+}
+
 interface Profile {
   id: string;
   email: string;
@@ -91,6 +102,8 @@ interface Profile {
   employee_number?: string | null;
   role: 'ROOT' | 'COMPANY_ADMIN' | 'EMPLOYEE';
   employment_category: 'FULLTIME' | 'AZUBI' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER';
+  is_minor?: boolean;
+  start_date?: string | null;
   last_login?: string | null;
   company_id?: string | null;
   companies?: {
@@ -111,10 +124,12 @@ interface DashboardContainerProps {
   entries: TimeEntry[];
   timesheetSettings: TimesheetSettings | null;
   surchargeSettings: SurchargeSettings | null;
+  payouts?: OvertimePayout[];
   employees: Profile[] | null;
   allCategorySettings: SurchargeSettings[] | null;
   allTimesheetSettings: TimesheetSettings[] | null;
   allCompanyEntries: TimeEntry[] | null;
+  allCompanyPayouts?: OvertimePayout[] | null;
   absenceCodes: AbsenceCode[] | null;
   qrCodes?: any[] | null;
 }
@@ -124,16 +139,18 @@ export default function DashboardContainer({
   entries,
   timesheetSettings,
   surchargeSettings,
+  payouts = [],
   employees,
   allCategorySettings,
   allTimesheetSettings,
   allCompanyEntries,
+  allCompanyPayouts = [],
   absenceCodes,
   qrCodes
 }: DashboardContainerProps) {
   const isAdmin = profile.role === 'COMPANY_ADMIN' || profile.role === 'ROOT';
   const [activeTab, setActiveTab] = useState<'employee' | 'admin'>(isAdmin ? 'admin' : 'employee');
-  const [adminSubTab, setAdminSubTab] = useState<'overview' | 'employees' | 'surcharges' | 'absences' | 'company' | 'carryover' | 'import' | 'reports' | 'compliance' | 'settings' | 'qrcodes'>('overview');
+  const [adminSubTab, setAdminSubTab] = useState<'overview' | 'employees' | 'surcharges' | 'absences' | 'company' | 'carryover' | 'overtime' | 'import' | 'reports' | 'compliance' | 'settings' | 'qrcodes'>('overview');
   const [employeeSubTab, setEmployeeSubTab] = useState<'zeiterfassung' | 'stundenzettel' | 'urlaub' | 'statistik' | 'sonstiges' | 'einstellungen'>('zeiterfassung');
   const [adminEmployeeSubView, setAdminEmployeeSubView] = useState<'list' | 'import' | 'carryover'>('list');
   const [settingsTab, setSettingsTab] = useState<'general' | 'security'>('general');
@@ -331,7 +348,9 @@ export default function DashboardContainer({
         
         // Target calculation
         let target = 8;
-        if (!isGermanHoliday(day).isHoliday) {
+        if (emp.start_date && day < new Date(emp.start_date)) {
+          target = 0;
+        } else if (!isGermanHoliday(day).isHoliday) {
           const wday = day.getDay();
           if (wday === 1) target = empSettings.target_hours_monday;
           else if (wday === 2) target = empSettings.target_hours_tuesday;
@@ -523,9 +542,12 @@ export default function DashboardContainer({
       }
       
       let status = '';
-      if (entry.absence_code === 'U') status = 'Urlaub';
-      else if (entry.absence_code === 'K') status = 'Krank';
-      else if (!entry.end_time) status = 'Offen';
+      if (entry.absence_code) {
+        const customCode = absenceCodes?.find(c => c.code === entry.absence_code);
+        status = customCode ? customCode.name : entry.absence_code;
+        if (status === 'U') status = 'Urlaub';
+        if (status === 'K') status = 'Krank';
+      } else if (!entry.end_time) status = 'Offen';
       
       return [
         formatDate(entry.entry_date),
@@ -747,6 +769,8 @@ export default function DashboardContainer({
                 currentUserId={profile.id}
                 isAdmin={isAdmin}
                 absenceCodes={absenceCodes}
+                startDate={profile?.start_date}
+                payouts={payouts}
               />
             )}
 
@@ -852,6 +876,7 @@ export default function DashboardContainer({
                 timesheetSettings={timesheetSettings} 
                 surchargeSettings={surchargeSettings} 
                 absenceCodes={absenceCodes}
+                startDate={profile?.start_date}
               />
             )}
 
@@ -961,6 +986,7 @@ export default function DashboardContainer({
               { id: 'surcharges', label: 'Zuschlagsregeln', icon: <Shield size={16} /> },
               { id: 'absences', label: 'Kürzel', icon: <CalendarDays size={16} /> },
               { id: 'reports', label: 'Monatsberichte & Export', icon: <FileText size={16} /> },
+              { id: 'overtime', label: 'Überstunden', icon: <DollarSign size={16} /> },
               ...(profile.companies?.feature_qr_tracking ? [{ id: 'qrcodes', label: 'QR-Codes', icon: <QrCode size={16} /> }] : []),
               { id: 'company', label: 'Firmendetails', icon: <Building size={16} /> }
             ].map(tab => (
@@ -994,6 +1020,14 @@ export default function DashboardContainer({
               allCompanyEntries={allCompanyEntries} 
               allCategorySettings={allCategorySettings} 
               onTabChange={(tab) => setAdminSubTab(tab as any)}
+            />
+          )}
+
+          {/* Sub-Tab content: Overtime Payouts */}
+          {adminSubTab === 'overtime' && employees && (
+            <AdminOvertimeTab
+              employees={employees}
+              allCompanyPayouts={allCompanyPayouts || []}
             />
           )}
 
@@ -1511,9 +1545,12 @@ export default function DashboardContainer({
                           }
                           
                           let status = '';
-                          if (entry.absence_code === 'U') status = 'Urlaub';
-                          else if (entry.absence_code === 'K') status = 'Krank';
-                          else if (!entry.end_time) status = 'Offen';
+                          if (entry.absence_code) {
+                            const customCode = absenceCodes?.find(c => c.code === entry.absence_code);
+                            status = customCode ? customCode.name : entry.absence_code;
+                            if (status === 'U') status = 'Urlaub';
+                            if (status === 'K') status = 'Krank';
+                          } else if (!entry.end_time) status = 'Offen';
 
                           return (
                             <tr key={entry.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', fontSize: '0.9rem' }}>
@@ -1691,6 +1728,8 @@ export default function DashboardContainer({
               surchargeSettings={allCategorySettings?.find(s => s.category === employees.find(e => e.id === selectedEmployeeForTimesheet)?.employment_category) || null} 
               currentUserId={selectedEmployeeForTimesheet}
               isAdmin={true}
+              startDate={employees.find(e => e.id === selectedEmployeeForTimesheet)?.start_date}
+              payouts={allCompanyPayouts?.filter(p => p.user_id === selectedEmployeeForTimesheet) || []}
             />
           </div>
         </div>
@@ -1745,6 +1784,7 @@ export default function DashboardContainer({
               { id: 'surcharges', label: 'Zuschläge', icon: <Shield size={20} /> },
               { id: 'absences', label: 'Kürzel', icon: <CalendarDays size={20} /> },
               { id: 'reports', label: 'Berichte', icon: <FileText size={20} /> },
+              { id: 'overtime', label: 'Überst.', icon: <DollarSign size={20} /> },
               ...(profile.companies?.feature_qr_tracking ? [{ id: 'qrcodes', label: 'QR-Codes', icon: <QrCode size={20} /> }] : []),
               { id: 'company', label: 'Firma', icon: <Building size={20} /> },
               { id: 'settings', label: 'Einstellungen', icon: <Settings size={20} /> }

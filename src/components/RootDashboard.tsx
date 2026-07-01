@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { deleteCompanyAction, deleteProfileAction, updateCompanyAction, updateProfileAction, resetUserPasswordAction, toggleUserLockAction } from '@/app/root/actions';
+import { deleteCompanyAction, deleteProfileAction, updateCompanyAction, updateProfileAction, resetUserPasswordAction, toggleUserLockAction, resetUserHoursAction } from '@/app/root/actions';
 import { logoutAction } from '@/app/actions';
 import { useRouter } from 'next/navigation';
 import CustomSelect from './CustomSelect';
 import ThemeToggle from './ThemeToggle';
-import { LogOut, ChevronDown, ChevronUp, Search, Building, Lock, Unlock, Key, MoreVertical, Edit2, Trash2 } from 'lucide-react';
+import { LogOut, ChevronDown, ChevronUp, Search, Building, Lock, Unlock, Key, MoreVertical, Edit2, Trash2, Clock } from 'lucide-react';
 import { getEmploymentCategoryLabel } from '@/utils/employment';
 
 export default function RootDashboard({ companies, profiles, rootProfile }: any) {
@@ -29,6 +29,9 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
   const [resetPasswordId, setResetPasswordId] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  
+  const [resetHoursId, setResetHoursId] = useState<string | null>(null);
+  const [resetHoursMonth, setResetHoursMonth] = useState<string>('ALL');
 
   const handleDeleteCompany = async (id: string) => {
     if (!confirm('Unternehmen wirklich löschen? Alle zugehörigen Daten (außer User) werden gelöscht.')) return;
@@ -80,6 +83,21 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
       alert('Passwort erfolgreich geändert.');
       setResetPasswordId(null);
       setNewPassword('');
+    } else {
+      alert(res.message);
+    }
+    setLoadingId(null);
+  };
+
+  const handleResetHours = async (id: string) => {
+    if (!confirm(resetHoursMonth === 'ALL' ? 'Wirklich ALLE Stunden dieses Mitarbeiters löschen?' : `Wirklich alle Stunden für ${resetHoursMonth} löschen?`)) return;
+    setLoadingId(id);
+    const res = await resetUserHoursAction(id, resetHoursMonth);
+    if (res.success) {
+      alert('Stunden erfolgreich zurückgesetzt.');
+      setResetHoursId(null);
+      setResetHoursMonth('ALL');
+      router.refresh();
     } else {
       alert(res.message);
     }
@@ -248,6 +266,9 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
                 minWidth: '200px',
                 marginTop: '0.5rem'
               }}>
+                <button className="dropdown-item" onClick={() => { setResetHoursId(p.id); setResetHoursMonth('ALL'); setOpenDropdownId(null); }}>
+                  <Clock size={16} /> Stunden zurücksetzen
+                </button>
                 <button className="dropdown-item" onClick={() => { setResetPasswordId(p.id); setNewPassword(''); setOpenDropdownId(null); }}>
                   <Key size={16} /> Passwort zurücksetzen
                 </button>
@@ -278,6 +299,35 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
           />
           <button onClick={() => handleResetPassword(p.id)} className="btn-primary" disabled={loadingId === p.id}>Speichern</button>
           <button onClick={() => setResetPasswordId(null)} className="btn-secondary">Abbrechen</button>
+        </div>
+      )}
+
+      {resetHoursId === p.id && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem', padding: '1rem', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+          <h4 style={{ fontSize: '0.9rem', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Stunden zurücksetzen</h4>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <select 
+              className="input-field" 
+              value={resetHoursMonth} 
+              onChange={(e) => setResetHoursMonth(e.target.value)}
+              style={{ flex: 1, padding: '0.5rem' }}
+            >
+              <option value="ALL">Gesamter Zeitraum (Alle löschen)</option>
+              {Array.from({length: 24}).map((_, i) => {
+                const date = new Date();
+                date.setMonth(date.getMonth() - i);
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const val = `${year}-${month}`;
+                const label = date.toLocaleString('de-DE', { month: 'long', year: 'numeric' });
+                return <option key={val} value={val}>{label}</option>;
+              })}
+            </select>
+            <button onClick={() => handleResetHours(p.id)} className="btn-primary" style={{ background: 'var(--danger)' }} disabled={loadingId === p.id}>
+              Löschen bestätigen
+            </button>
+            <button onClick={() => setResetHoursId(null)} className="btn-secondary">Abbrechen</button>
+          </div>
         </div>
       )}
 

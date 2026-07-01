@@ -44,6 +44,8 @@ interface YearlyOverviewTableProps {
   timesheetSettings: TimesheetSettings;
   surchargeSettings: SurchargeSettings;
   absenceCodes: AbsenceCode[];
+  startDate?: string | null;
+  payouts?: { id: string; user_id: string; year: number; month: number; hours: number; note: string | null; created_at: string; }[];
 }
 
 const MONTHS = [
@@ -70,7 +72,9 @@ export default function YearlyOverviewTable({
   entries,
   timesheetSettings,
   surchargeSettings,
-  absenceCodes
+  absenceCodes,
+  startDate,
+  payouts = []
 }: YearlyOverviewTableProps) {
   const [year, setYear] = useState(new Date().getFullYear());
   const [mobileMonthIdx, setMobileMonthIdx] = useState(new Date().getMonth());
@@ -86,7 +90,8 @@ export default function YearlyOverviewTable({
           anwesend: 0,
           krank: 0,
           urlaub: 0,
-          gleittag: 0
+          gleittag: 0,
+          payout: 0
         }
       }))
     };
@@ -107,7 +112,11 @@ export default function YearlyOverviewTable({
         
         // Calculate target hours
         let baseTargetHours = 0;
-        if (!isHoliday.isHoliday) {
+        
+        // Skip target hours if before start date
+        if (startDate && new Date(dateStr) < new Date(startDate)) {
+          baseTargetHours = 0;
+        } else if (!isHoliday.isHoliday) {
           switch (date.getDay()) {
             case 1: baseTargetHours = timesheetSettings.target_hours_monday; break;
             case 2: baseTargetHours = timesheetSettings.target_hours_tuesday; break;
@@ -190,10 +199,17 @@ export default function YearlyOverviewTable({
           data.months[m].summary.anwesend += 1;
         }
       }
+
+      const monthlyPayout = payouts
+        .filter(p => p.year === year && p.month === m + 1)
+        .reduce((sum, p) => sum + p.hours, 0);
+      
+      data.months[m].summary.payout = monthlyPayout;
+      data.months[m].summary.overtime -= monthlyPayout;
     }
 
     return data;
-  }, [year, entries, timesheetSettings, surchargeSettings, absenceCodes]);
+  }, [year, entries, timesheetSettings, surchargeSettings, absenceCodes, startDate, payouts]);
 
   const totalSoll = gridData.months.reduce((acc: number, m: any) => acc + m.summary.soll, 0);
   const totalIst = gridData.months.reduce((acc: number, m: any) => acc + m.summary.ist, 0);
@@ -317,6 +333,22 @@ export default function YearlyOverviewTable({
               </td>
             </tr>
 
+            {gridData.months.some((m: any) => m.summary.payout > 0) && (
+              <tr style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                <td style={{ border: '1px solid var(--glass-border)', padding: '0.5rem', textAlign: 'left', fontWeight: 600, fontSize: '0.7rem' }} colSpan={1}>
+                  Davon Ausgezahlt
+                </td>
+                {gridData.months.map((m: any, idx: number) => (
+                  <td key={idx} colSpan={2} style={{ border: '1px solid var(--glass-border)', padding: '0.5rem', fontWeight: 600, color: m.summary.payout > 0 ? 'var(--accent-primary)' : 'inherit', fontSize: '0.7rem' }}>
+                    {m.summary.payout > 0 ? formatHours(m.summary.payout) : '-'}
+                  </td>
+                ))}
+                <td colSpan={1} style={{ border: '1px solid var(--glass-border)', padding: '0.5rem', fontWeight: 600, color: 'var(--accent-primary)', fontSize: '0.7rem' }}>
+                  {formatHours(gridData.months.reduce((acc: number, m: any) => acc + m.summary.payout, 0))}
+                </td>
+              </tr>
+            )}
+
             <tr>
               <td style={{ border: '1px solid var(--glass-border)', padding: '0.5rem', textAlign: 'left', fontWeight: 600 }} colSpan={1}>
                 Anwesenheitstage
@@ -436,6 +468,14 @@ export default function YearlyOverviewTable({
                 {gridData.months[mobileMonthIdx].summary.overtime > 0 ? '+' : ''}{formatHours(gridData.months[mobileMonthIdx].summary.overtime)}
               </td>
             </tr>
+            {gridData.months[mobileMonthIdx].summary.payout > 0 && (
+              <tr style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                <td style={{ border: '1px solid var(--glass-border)', padding: '0.5rem', fontWeight: 600, fontSize: '0.75rem' }}>Davon Ausgezahlt</td>
+                <td colSpan={2} style={{ border: '1px solid var(--glass-border)', padding: '0.5rem', fontWeight: 600, color: 'var(--accent-primary)', fontSize: '0.75rem' }}>
+                  {formatHours(gridData.months[mobileMonthIdx].summary.payout)}
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

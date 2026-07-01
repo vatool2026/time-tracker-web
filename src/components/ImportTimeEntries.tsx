@@ -19,7 +19,7 @@ type Props = {
 
 // Helper to convert Excel date/time or string time to HH:mm:ss format
 function parseTime(val: any): string | null {
-  if (!val) return null;
+  if (val === undefined || val === null || val === '') return null;
   if (typeof val === 'string') {
     // Expecting formats like "08:00" or "8:00"
     const match = val.match(/^(\d{1,2}):(\d{2})/);
