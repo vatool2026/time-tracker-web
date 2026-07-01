@@ -2,6 +2,7 @@
   "name": "Zeiterfassung Pro",
   "short_name": "Zeit Pro",
   "description": "Premium SaaS Zeiterfassung für moderne Unternehmen",
+  "id": "/",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#09090b",
