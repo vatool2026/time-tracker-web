@@ -92,6 +92,7 @@ interface Profile {
   role: 'ROOT' | 'COMPANY_ADMIN' | 'EMPLOYEE';
   employment_category: 'FULLTIME' | 'AZUBI' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER';
   last_login?: string | null;
+  company_id?: string | null;
   companies?: {
     id: string;
     name: string;
