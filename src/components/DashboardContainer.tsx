@@ -9,6 +9,7 @@ import EmployeeSettingsModal from './EmployeeSettingsModal';
 import InviteEmployeeModal from './InviteEmployeeModal';
 import AbsenceCodeModal from './AbsenceCodeModal';
 import CustomSelect from './CustomSelect';
+import TravelAllowanceCalculator from './TravelAllowanceCalculator';
 
 import ThemeToggle from './ThemeToggle';
 import LogoUpload from './LogoUpload';
@@ -24,7 +25,7 @@ import autoTable from 'jspdf-autotable';
 import { 
   Building, LogOut, Users, Download, Upload,
   Shield, FileText, CheckCircle, AlertCircle, PlusCircle, LayoutDashboard,
-  Clock, Calendar, CalendarDays, BarChart, Settings, MoreHorizontal, Table, ChevronDown, RefreshCw, ShieldAlert
+  Clock, Calendar, CalendarDays, BarChart, Settings, MoreHorizontal, Table, ChevronDown, RefreshCw, ShieldAlert, Car
 } from 'lucide-react';
 import { getEmploymentCategoryLabel } from '@/utils/employment';
 
@@ -694,7 +695,7 @@ export default function DashboardContainer({
                 { id: 'stundenzettel', label: 'Stundenzettel', icon: <Table size={16} /> },
                 profile.companies?.feature_urlaub ? { id: 'urlaub', label: 'Urlaub', icon: <Calendar size={16} /> } : null,
                 { id: 'statistik', label: 'Statistik', icon: <BarChart size={16} /> },
-                profile.companies?.feature_sonstiges ? { id: 'sonstiges', label: 'Sonstiges', icon: <MoreHorizontal size={16} /> } : null
+                profile.companies?.feature_sonstiges ? { id: 'sonstiges', label: 'Fahrtkosten', icon: <Car size={16} /> } : null
               ].filter(Boolean).map((tab: any) => (
                 <button
                   key={tab.id}
@@ -848,11 +849,7 @@ export default function DashboardContainer({
             )}
 
             {employeeSubTab === 'sonstiges' && (
-              <div className="glass glass-card" style={{ textAlign: 'center', padding: '4rem 2rem', color: 'var(--text-secondary)' }}>
-                <MoreHorizontal size={48} style={{ opacity: 0.2, margin: '0 auto 1rem auto' }} />
-                <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Sonstiges</h3>
-                <p>Weitere Funktionen und Informationen folgen in Kürze.</p>
-              </div>
+              <TravelAllowanceCalculator entries={entries} />
             )}
 
             {employeeSubTab === 'einstellungen' && (
