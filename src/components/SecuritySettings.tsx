@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { updateUserPasswordAction } from '@/app/actions';
-import { QRCodeSVG } from 'qrcode.react';
 import { Shield, Key, Lock, CheckCircle, AlertCircle, Smartphone } from 'lucide-react';
 
 export default function SecuritySettings({ profile }: { profile: any }) {
@@ -257,7 +256,7 @@ export default function SecuritySettings({ profile }: { profile: any }) {
           <div className="glass" style={{ padding: '1.5rem', borderRadius: 'var(--border-radius-md)', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'flex-start' }}>
             <p style={{ fontSize: '0.9rem' }}>1. Scannen Sie diesen QR-Code mit Ihrer Authenticator-App:</p>
             <div style={{ background: 'white', padding: '1rem', borderRadius: '8px' }}>
-              <QRCodeSVG value={qrCodeData} size={200} />
+              <img src={qrCodeData} alt="2FA QR Code" style={{ width: '200px', height: '200px', display: 'block' }} />
             </div>
             <p style={{ fontSize: '0.9rem' }}>2. Geben Sie den 6-stelligen Code aus der App hier ein:</p>
             <div style={{ display: 'flex', gap: '1rem' }}>
