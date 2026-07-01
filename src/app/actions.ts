@@ -1161,7 +1161,7 @@ export async function importExcelTimeEntriesAction(userId: string, entries: Exce
     user_id: userId,
     entry_date: e.date,
     start_time: e.startTime || '00:00:00', // For absence only, time can be 00:00
-    end_time: e.endTime || (e.startTime ? e.startTime : '00:00:00'),
+    end_time: e.endTime || (e.absenceCode && !e.startTime ? '00:00:00' : null),
     break_minutes: e.breakMinutes,
     absence_code: e.absenceCode,
     note: e.note,

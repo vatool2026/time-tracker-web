@@ -59,6 +59,14 @@ function parseDate(serial: any, contextYear: number, contextMonth: number): stri
   return null;
 }
 
+const getEntryError = (e: ExcelImportEntry): string | null => {
+  if (e.absenceCode) return null; // Absences often have no times
+  if (e.startTime && !e.endTime) return 'Fehlende Endzeit';
+  if (!e.startTime && e.endTime) return 'Fehlende Startzeit';
+  if (e.startTime && e.endTime && e.startTime === e.endTime) return 'Start- und Endzeit identisch (0 Std.)';
+  return null;
+};
+
 export default function ImportTimeEntries({ employees }: Props) {
   const [selectedUser, setSelectedUser] = useState<string>('');
   const [file, setFile] = useState<File | null>(null);
@@ -201,6 +209,27 @@ export default function ImportTimeEntries({ employees }: Props) {
     }
   };
 
+  const updateEntry = (index: number, field: keyof ExcelImportEntry, value: any) => {
+    const newList = [...entriesToImport];
+    newList[index] = { ...newList[index], [field]: value };
+    setEntriesToImport(newList);
+  };
+
+  const removeEntry = (index: number) => {
+    const newList = [...entriesToImport];
+    newList.splice(index, 1);
+    setEntriesToImport(newList);
+    if (newList.length === 0) {
+      setPreview(null);
+    } else if (preview) {
+      setPreview({ ...preview, count: newList.length });
+    }
+  };
+
+  const faultyEntries = entriesToImport
+    .map((entry, index) => ({ entry, index, error: getEntryError(entry) }))
+    .filter(x => x.error !== null);
+
   if (!employees || employees.length === 0) {
     return <div className="card p-4">Keine Mitarbeiter gefunden.</div>;
   }
@@ -263,6 +292,87 @@ export default function ImportTimeEntries({ employees }: Props) {
           <p style={{ margin: 0, fontSize: '1rem', fontWeight: 'bold' }}>
             {preview.count} Datensätze gefunden ({preview.month})
           </p>
+          
+          {faultyEntries.length > 0 && (
+            <div style={{ marginTop: '1rem' }}>
+              <div style={{ padding: '0.5rem', background: 'rgba(234, 179, 8, 0.1)', color: 'var(--color-warning, #ca8a04)', borderRadius: '0.25rem', fontSize: '0.85rem', display: 'flex', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+                <span>
+                  <strong>Achtung:</strong> Es wurden {faultyEntries.length} fehlerhafte oder unvollständige Einträge gefunden. Bitte korrigiere oder lösche diese Einträge, bevor du den Import startest.
+                </span>
+              </div>
+              
+              <div style={{ overflowX: 'auto', maxHeight: '400px', overflowY: 'auto', border: '1px solid var(--color-border)', borderRadius: '0.5rem' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', textAlign: 'left' }}>
+                  <thead style={{ position: 'sticky', top: 0, background: 'var(--color-surface)', zIndex: 1, boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
+                    <tr>
+                      <th style={{ padding: '0.5rem', borderBottom: '1px solid var(--color-border)' }}>Datum</th>
+                      <th style={{ padding: '0.5rem', borderBottom: '1px solid var(--color-border)' }}>Start</th>
+                      <th style={{ padding: '0.5rem', borderBottom: '1px solid var(--color-border)' }}>Ende</th>
+                      <th style={{ padding: '0.5rem', borderBottom: '1px solid var(--color-border)' }}>Pause (Min)</th>
+                      <th style={{ padding: '0.5rem', borderBottom: '1px solid var(--color-border)' }}>Fehlergrund</th>
+                      <th style={{ padding: '0.5rem', borderBottom: '1px solid var(--color-border)' }}>Aktion</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {faultyEntries.map(({ entry, index, error }) => (
+                      <tr key={index} style={{ borderBottom: '1px solid var(--color-border)', background: 'var(--color-background)' }}>
+                        <td style={{ padding: '0.5rem' }}>
+                          <input 
+                            type="date" 
+                            value={entry.date} 
+                            onChange={(e) => updateEntry(index, 'date', e.target.value)}
+                            className="input"
+                            style={{ padding: '0.25rem', fontSize: '0.85rem' }}
+                          />
+                        </td>
+                        <td style={{ padding: '0.5rem' }}>
+                          <input 
+                            type="time" 
+                            value={entry.startTime || ''} 
+                            onChange={(e) => updateEntry(index, 'startTime', e.target.value)}
+                            className="input"
+                            style={{ padding: '0.25rem', fontSize: '0.85rem' }}
+                          />
+                        </td>
+                        <td style={{ padding: '0.5rem' }}>
+                          <input 
+                            type="time" 
+                            value={entry.endTime || ''} 
+                            onChange={(e) => updateEntry(index, 'endTime', e.target.value)}
+                            className="input"
+                            style={{ padding: '0.25rem', fontSize: '0.85rem' }}
+                          />
+                        </td>
+                        <td style={{ padding: '0.5rem' }}>
+                          <input 
+                            type="number" 
+                            value={entry.breakMinutes} 
+                            onChange={(e) => updateEntry(index, 'breakMinutes', parseInt(e.target.value) || 0)}
+                            className="input"
+                            style={{ padding: '0.25rem', fontSize: '0.85rem', width: '60px' }}
+                            min={0}
+                          />
+                        </td>
+                        <td style={{ padding: '0.5rem', color: 'var(--color-error)' }}>
+                          {error}
+                        </td>
+                        <td style={{ padding: '0.5rem' }}>
+                          <button 
+                            className="btn btn-secondary" 
+                            style={{ padding: '0.25rem 0.5rem', fontSize: '0.85rem', color: 'var(--color-error)', borderColor: 'var(--color-error)' }}
+                            onClick={() => removeEntry(index)}
+                          >
+                            Löschen
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
