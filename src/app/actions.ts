@@ -262,7 +262,7 @@ export async function logoutAction(): Promise<void> {
 /**
  * Clock in: Inserts a new time entry starting now.
  */
-export async function clockInAction(note: string = ''): Promise<ActionResponse> {
+export async function clockInAction(note: string = '', qr_code_id: string | null = null): Promise<ActionResponse> {
   const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -294,6 +294,7 @@ export async function clockInAction(note: string = ''): Promise<ActionResponse> 
       start_time: nowTime,
       break_minutes: 0,
       note: note || null,
+      qr_code_id: qr_code_id,
     });
 
   if (error) return { success: false, message: `Fehler beim Einstempeln: ${error.message}` };

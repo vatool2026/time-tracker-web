@@ -17,6 +17,7 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
   const [editFeatureUrlaub, setEditFeatureUrlaub] = useState(false);
   const [editFeatureAbwesenheit, setEditFeatureAbwesenheit] = useState(false);
   const [editFeatureSonstiges, setEditFeatureSonstiges] = useState(false);
+  const [editFeatureQrTracking, setEditFeatureQrTracking] = useState(false);
 
   const [editingProfile, setEditingProfile] = useState<string | null>(null);
   const [editProfileRole, setEditProfileRole] = useState('');
@@ -92,6 +93,7 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
     setEditFeatureUrlaub(c.feature_urlaub ?? false);
     setEditFeatureAbwesenheit(c.feature_abwesenheit ?? false);
     setEditFeatureSonstiges(c.feature_sonstiges ?? false);
+    setEditFeatureQrTracking(c.feature_qr_tracking ?? false);
   };
 
   const saveEditCompany = async (e: React.MouseEvent, id: string) => {
@@ -103,7 +105,8 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
         name: editCompanyName,
         feature_urlaub: editFeatureUrlaub,
         feature_abwesenheit: editFeatureAbwesenheit,
-        feature_sonstiges: editFeatureSonstiges
+        feature_sonstiges: editFeatureSonstiges,
+        feature_qr_tracking: editFeatureQrTracking
       });
       if (res?.success) {
         setEditingCompany(null);
@@ -437,13 +440,17 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
                               <input type="checkbox" checked={editFeatureSonstiges} onChange={(e) => setEditFeatureSonstiges(e.target.checked)} />
                               Sonstiges aktiv
                             </label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}>
+                              <input type="checkbox" checked={editFeatureQrTracking} onChange={(e) => setEditFeatureQrTracking(e.target.checked)} />
+                              QR-Zeiterfassung aktiv
+                            </label>
                           </div>
                         </div>
                       ) : (
                         <h3 style={{ fontWeight: 600, fontSize: '1.1rem' }}>
                           {c.name}
                           <span style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--text-secondary)', marginLeft: '0.5rem' }}>
-                            {[c.feature_urlaub && 'Urlaub', c.feature_abwesenheit && 'Abw.', c.feature_sonstiges && 'Sonstiges'].filter(Boolean).join(', ')}
+                            {[c.feature_urlaub && 'Urlaub', c.feature_abwesenheit && 'Abw.', c.feature_sonstiges && 'Sonstiges', c.feature_qr_tracking && 'QR-Zeiterfassung'].filter(Boolean).join(', ')}
                           </span>
                         </h3>
                       )}

@@ -63,6 +63,7 @@ export default async function DashboardPage() {
   let allTimesheetSettings = null;
   let allCompanyEntries = null;
   let absenceCodes = null;
+  let qrCodes = null;
 
   if (isAdmin) {
     // Fetch all profiles in the same company, excluding admins since they don't track time
@@ -123,6 +124,16 @@ export default async function DashboardPage() {
     absenceCodes = codes;
   }
 
+  // Fetch QR codes if feature is enabled
+  if (profile.companies?.feature_qr_tracking) {
+    const { data: qrs } = await supabase
+      .from('qr_codes')
+      .select('*')
+      .eq('company_id', profile.company_id)
+      .order('name', { ascending: true });
+    qrCodes = qrs;
+  }
+
   return (
     <main className="container" style={{ padding: '0 1.5rem', minHeight: '100vh' }}>
       <DashboardContainer
@@ -135,6 +146,7 @@ export default async function DashboardPage() {
         allTimesheetSettings={allTimesheetSettings}
         allCompanyEntries={allCompanyEntries}
         absenceCodes={absenceCodes}
+        qrCodes={qrCodes}
       />
     </main>
   );

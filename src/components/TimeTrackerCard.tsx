@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { clockInAction, clockOutAction, recordBreakAction, setDayAbsenceCodeAction, createManualTimeEntryAction } from '@/app/actions';
-import { Coffee, LogIn, LogOut, Calendar, Edit3, AlertCircle, Check } from 'lucide-react';
-import CustomSelect from './CustomSelect';
+import { Play, Square, Coffee, Edit3, LogIn, LogOut, AlertCircle, Check, ChevronDown, ChevronUp, QrCode } from 'lucide-react';
+import { clockInAction, clockOutAction, recordBreakAction, createManualTimeEntryAction } from '@/app/actions';
+import QRScannerModal from './QRScannerModal';
 
 interface TimeTrackerCardProps {
   activeEntry: {
@@ -16,9 +16,11 @@ interface TimeTrackerCardProps {
   currentUserId: string;
   feature_urlaub?: boolean;
   feature_abwesenheit?: boolean;
+  feature_qr_tracking?: boolean;
+  qrCodes?: any[] | null;
 }
 
-export default function TimeTrackerCard({ activeEntry, currentUserId, feature_urlaub = false, feature_abwesenheit = false }: TimeTrackerCardProps) {
+export default function TimeTrackerCard({ activeEntry, currentUserId, feature_urlaub = false, feature_abwesenheit = false, feature_qr_tracking = false, qrCodes = [] }: TimeTrackerCardProps) {
   const [note, setNote] = useState<string>('');
   const [elapsedTime, setElapsedTime] = useState<string>('00:00:00');
   const [isOnBreak, setIsOnBreak] = useState<boolean>(() => {
@@ -37,13 +39,19 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
   });
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [breakWarning, setBreakWarning] = useState<string | null>(null);
+  
+  const [qrMenuOpen, setQrMenuOpen] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   
-  // Absence Form State
-  const [absenceDate, setAbsenceDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
-  const [absenceCode, setAbsenceCode] = useState<'U' | 'K'>(() => feature_urlaub ? 'U' : 'K');
-  const [absenceNote, setAbsenceNote] = useState<string>('');
-
   // Manual Entry Form State
   const [manualDate, setManualDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [manualStartTime, setManualStartTime] = useState<string>('08:00');
@@ -173,22 +181,6 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
     }
   };
 
-  const handleAbsenceSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!absenceDate) {
-      showMsg('error', 'Bitte ein Datum auswählen.');
-      return;
-    }
-    const res = await setDayAbsenceCodeAction(absenceDate, absenceCode, absenceNote);
-    if (res.success) {
-      const typeStr = absenceCode === 'U' ? 'Urlaub' : 'Krankheit';
-      showMsg('success', `${typeStr} für den ${absenceDate} erfolgreich eingetragen.`);
-      setAbsenceNote('');
-    } else {
-      showMsg('error', res.message);
-    }
-  };
-
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const res = await createManualTimeEntryAction(currentUserId, manualDate, manualStartTime, manualEndTime, manualBreak, '', '');
@@ -291,11 +283,45 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
         </div>
 
         {/* Buttons Grid */}
-        <div style={{ display: 'flex', width: '100%', gap: '1rem', marginTop: 'auto' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '0.5rem', marginTop: 'auto' }}>
           {!activeEntry ? (
-            <button onClick={handleClockIn} className="btn btn-primary" style={{ flex: 1, height: '48px' }}>
-              <LogIn size={18} /> Einstempeln
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+                <button onClick={handleClockIn} className="btn btn-primary" style={{ flex: 1, height: '48px' }}>
+                  <LogIn size={18} /> Einstempeln
+                </button>
+                {feature_qr_tracking && isMobile && (
+                  <button onClick={() => setIsScannerOpen(true)} className="btn btn-secondary glass" style={{ width: '48px', height: '48px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <QrCode size={20} />
+                  </button>
+                )}
+              </div>
+              
+              {feature_qr_tracking && qrCodes && qrCodes.filter(q => q.is_active).length > 0 && (
+                <div style={{ width: '100%' }}>
+                  <button 
+                    onClick={() => setQrMenuOpen(!qrMenuOpen)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '0.8rem', padding: '0.25rem 0', cursor: 'pointer' }}
+                  >
+                    Schnellauswahl QR-Codes {qrMenuOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  </button>
+                  {qrMenuOpen && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
+                      {qrCodes.filter(q => q.is_active).map(qr => (
+                        <button 
+                          key={qr.id}
+                          onClick={() => setNote(qr.note_text)}
+                          className="btn-secondary glass"
+                          style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderRadius: '4px' }}
+                        >
+                          {qr.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           ) : (
             <>
               {isOnBreak ? (
@@ -325,65 +351,8 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
         )}
       </div>
 
-      {/* Secondary Absence Booking Card */}
-      {(feature_urlaub || feature_abwesenheit) && (
-        <div className="glass glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', minHeight: '350px' }}>
-        <h2 style={{ fontSize: '1.5rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Calendar size={22} className="text-gradient" /> Abwesenheit buchen
-        </h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-          Erfassen Sie einen ganztägigen Urlaub oder einen Krankheitstag. Ein bestehender Zeiteintrag an diesem Tag wird überschrieben.
-        </p>
-
-        <form onSubmit={handleAbsenceSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', height: '100%' }}>
-          
-          <div className="grid-cols-2" style={{ gap: '1rem' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>
-                Datum
-              </label>
-              <input
-                type="date"
-                value={absenceDate}
-                onChange={(e) => setAbsenceDate(e.target.value)}
-                className="input-field"
-                required
-              />
-            </div>
-            
-            <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>
-                Typ
-              </label>
-              <CustomSelect
-                value={absenceCode}
-                onChange={(val) => setAbsenceCode(val as 'U' | 'K')}
-                options={[
-                  ...(feature_urlaub ? [{ value: 'U', label: '🏖️ Urlaub (U)' }] : []),
-                  ...(feature_abwesenheit ? [{ value: 'K', label: '🤒 Krank (K)' }] : [])
-                ]}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>
-              Bemerkung / Begründung
-            </label>
-            <input
-              type="text"
-              placeholder={absenceCode === 'U' ? 'Erholungsurlaub' : 'Arbeitsunfähigkeitsbescheinigung vorliegend'}
-              value={absenceNote}
-              onChange={(e) => setAbsenceNote(e.target.value)}
-              className="input-field"
-            />
-          </div>
-
-          <button type="submit" className="btn btn-secondary glass" style={{ marginTop: 'auto', width: '100%', height: '48px', fontWeight: 600 }}>
-            Eintragen
-          </button>
-        </form>
-      </div>
+      {isScannerOpen && (
+        <QRScannerModal onClose={() => setIsScannerOpen(false)} />
       )}
 
       {/* Manual Entry Card (Forgot to clock in) */}

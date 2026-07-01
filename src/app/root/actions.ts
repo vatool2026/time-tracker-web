@@ -82,7 +82,7 @@ export async function deleteProfileAction(profileId: string): Promise<ActionResp
   return { success: true, message: 'Benutzerprofil erfolgreich gelöscht.' };
 }
 
-export async function updateCompanyAction(companyId: string, updates: { name?: string; feature_urlaub?: boolean; feature_abwesenheit?: boolean; feature_sonstiges?: boolean }): Promise<ActionResponse> {
+export async function updateCompanyAction(companyId: string, updates: { name?: string; feature_urlaub?: boolean; feature_abwesenheit?: boolean; feature_sonstiges?: boolean; feature_qr_tracking?: boolean }): Promise<ActionResponse> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, message: 'Nicht authentifiziert' };

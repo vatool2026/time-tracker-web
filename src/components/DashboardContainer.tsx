@@ -20,12 +20,13 @@ import AdminOverview from './AdminOverview';
 import ImportTimeEntries from './ImportTimeEntries';
 import CarryoverAdminTab from './CarryoverAdminTab';
 import ComplianceAdminTab from './ComplianceAdminTab';
+import QRCodeAdminTab from './QRCodeAdminTab';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { 
   Building, LogOut, Users, Download, Upload,
   Shield, FileText, CheckCircle, AlertCircle, PlusCircle, LayoutDashboard,
-  Clock, Calendar, CalendarDays, BarChart, Settings, MoreHorizontal, Table, ChevronDown, RefreshCw, ShieldAlert, Car
+  Clock, Calendar, CalendarDays, BarChart, Settings, MoreHorizontal, Table, ChevronDown, RefreshCw, ShieldAlert, Car, QrCode
 } from 'lucide-react';
 import { getEmploymentCategoryLabel } from '@/utils/employment';
 
@@ -100,6 +101,7 @@ interface Profile {
     feature_urlaub?: boolean;
     feature_abwesenheit?: boolean;
     feature_sonstiges?: boolean;
+    feature_qr_tracking?: boolean;
   } | null;
 }
 
@@ -113,6 +115,7 @@ interface DashboardContainerProps {
   allTimesheetSettings: TimesheetSettings[] | null;
   allCompanyEntries: TimeEntry[] | null;
   absenceCodes: AbsenceCode[] | null;
+  qrCodes?: any[] | null;
 }
 
 export default function DashboardContainer({
@@ -124,11 +127,12 @@ export default function DashboardContainer({
   allCategorySettings,
   allTimesheetSettings,
   allCompanyEntries,
-  absenceCodes
+  absenceCodes,
+  qrCodes
 }: DashboardContainerProps) {
   const isAdmin = profile.role === 'COMPANY_ADMIN' || profile.role === 'ROOT';
   const [activeTab, setActiveTab] = useState<'employee' | 'admin'>(isAdmin ? 'admin' : 'employee');
-  const [adminSubTab, setAdminSubTab] = useState<'overview' | 'employees' | 'surcharges' | 'absences' | 'company' | 'carryover' | 'import' | 'reports' | 'compliance' | 'settings'>('overview');
+  const [adminSubTab, setAdminSubTab] = useState<'overview' | 'employees' | 'surcharges' | 'absences' | 'company' | 'carryover' | 'import' | 'reports' | 'compliance' | 'settings' | 'qrcodes'>('overview');
   const [employeeSubTab, setEmployeeSubTab] = useState<'zeiterfassung' | 'stundenzettel' | 'urlaub' | 'statistik' | 'sonstiges' | 'einstellungen'>('zeiterfassung');
   const [adminEmployeeSubView, setAdminEmployeeSubView] = useState<'list' | 'import' | 'carryover'>('list');
   const [settingsTab, setSettingsTab] = useState<'general' | 'security'>('general');
@@ -729,6 +733,8 @@ export default function DashboardContainer({
                 currentUserId={profile.id} 
                 feature_urlaub={profile.companies?.feature_urlaub}
                 feature_abwesenheit={profile.companies?.feature_abwesenheit}
+                qrCodes={qrCodes}
+                feature_qr_tracking={profile.companies?.feature_qr_tracking}
               />
             )}
             
@@ -954,6 +960,7 @@ export default function DashboardContainer({
               { id: 'surcharges', label: 'Zuschlagsregeln', icon: <Shield size={16} /> },
               { id: 'absences', label: 'Kürzel', icon: <CalendarDays size={16} /> },
               { id: 'reports', label: 'Monatsberichte & Export', icon: <FileText size={16} /> },
+              ...(profile.companies?.feature_qr_tracking ? [{ id: 'qrcodes', label: 'QR-Codes', icon: <QrCode size={16} /> }] : []),
               { id: 'company', label: 'Firmendetails', icon: <Building size={16} /> }
             ].map(tab => (
               <button
@@ -1313,6 +1320,17 @@ export default function DashboardContainer({
                 <LogoUpload currentLogoUrl={profile.companies.logo_url || null} companyId={profile.companies.id} />
               )}
             </div>
+          )}
+
+          {/* Sub-Tab content: QR-Codes */}
+          {adminSubTab === 'qrcodes' && qrCodes && profile.company_id && (
+            <QRCodeAdminTab 
+              qrCodes={qrCodes} 
+              companyId={profile.company_id} 
+              refreshData={() => {
+                if (typeof window !== 'undefined') window.location.reload();
+              }} 
+            />
           )}
 
           {/* Sub-Tab content: Reports & Exports */}
@@ -1726,6 +1744,7 @@ export default function DashboardContainer({
               { id: 'surcharges', label: 'Zuschläge', icon: <Shield size={20} /> },
               { id: 'absences', label: 'Kürzel', icon: <CalendarDays size={20} /> },
               { id: 'reports', label: 'Berichte', icon: <FileText size={20} /> },
+              ...(profile.companies?.feature_qr_tracking ? [{ id: 'qrcodes', label: 'QR-Codes', icon: <QrCode size={20} /> }] : []),
               { id: 'company', label: 'Firma', icon: <Building size={20} /> },
               { id: 'settings', label: 'Einstellungen', icon: <Settings size={20} /> }
             ].map((tab: any) => (
