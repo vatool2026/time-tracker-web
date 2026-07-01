@@ -560,7 +560,8 @@ export async function updateEmployeeSettingsAction(
     sunday: number;
   },
   employeeNumber?: string | null,
-  isMinor?: boolean
+  isMinor?: boolean,
+  startDate?: string | null
 ): Promise<ActionResponse> {
   const supabase = await createClient();
 
@@ -586,6 +587,7 @@ export async function updateEmployeeSettingsAction(
       employment_category: employmentCategory,
       employee_number: employeeNumber !== undefined ? employeeNumber : undefined,
       is_minor: isMinor !== undefined ? isMinor : undefined,
+      start_date: startDate !== undefined ? startDate : undefined,
     })
     .eq('id', employeeId)
     .eq('company_id', callerProfile.company_id); // Security: check same company
@@ -949,7 +951,8 @@ export async function inviteEmployeeAction(
   lastName: string,
   email: string,
   role: 'ROOT' | 'COMPANY_ADMIN' | 'EMPLOYEE',
-  employmentCategory: 'FULLTIME' | 'AZUBI' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER'
+  employmentCategory: 'FULLTIME' | 'AZUBI' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER',
+  startDate?: string | null
 ): Promise<ActionResponse> {
   const supabase = await createClient();
 
@@ -1002,6 +1005,7 @@ export async function inviteEmployeeAction(
       last_name: lastName,
       role,
       employment_category: employmentCategory,
+      start_date: startDate !== undefined ? startDate : undefined,
     });
 
   if (profileError) {

@@ -10,13 +10,14 @@ interface CustomSelectProps {
   disabled?: boolean;
   name?: string;
   menuPlacement?: 'bottom' | 'top';
+  placeholder?: string;
 }
 
-export default function CustomSelect({ value, onChange, options, className = '', style = {}, disabled = false, name, menuPlacement = 'bottom' }: CustomSelectProps) {
+export default function CustomSelect({ value, onChange, options, className = '', style = {}, disabled = false, name, menuPlacement = 'bottom', placeholder }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const selectedOption = options.find(o => o.value === value) || options[0];
+  const selectedOption = options.find(o => o.value === value) || (placeholder && !value ? null : options[0]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -51,8 +52,8 @@ export default function CustomSelect({ value, onChange, options, className = '',
           textAlign: 'left'
         }}
       >
-        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {selectedOption?.label || ''}
+        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: !selectedOption ? 'var(--text-secondary)' : 'inherit' }}>
+          {selectedOption ? selectedOption.label : placeholder || ''}
         </span>
         <ChevronDown size={18} style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0, opacity: disabled ? 0.5 : 1 }} />
       </button>
