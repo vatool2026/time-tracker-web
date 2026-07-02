@@ -9,12 +9,12 @@
     .wrapper { padding: 40px 20px; background-color: #f8fafc; }
     .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05); }
     .header { background: linear-gradient(135deg, #3b82f6, #8b5cf6); padding: 32px 20px; text-align: center; color: #ffffff; }
-    .header .logo { max-height: 48px; margin-bottom: 16px; border-radius: 8px; }
+    .header .logo { max-height: 80px; margin-bottom: 16px; border-radius: 8px; }
     .header h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
     .content { padding: 40px 32px; color: #0f172a; line-height: 1.6; font-size: 16px; }
     .content p { margin: 0 0 20px 0; }
     .btn-container { text-align: center; margin: 32px 0; }
-    .btn { display: inline-block; background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 14px rgba(59, 130, 246, 0.39); }
+    .btn { display: inline-block; background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: #ffffff !important; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 14px rgba(59, 130, 246, 0.39); }
     .footer { background: #f1f5f9; padding: 24px; text-align: center; color: #475569; font-size: 14px; border-top: 1px solid #e2e8f0; }
     .text-sm { font-size: 14px; color: #475569; }
   </style>
@@ -27,8 +27,8 @@
           <img src="{{ .Data.company_logo_url }}" alt="{{ if .Data.company_name }}{{ .Data.company_name }}{{ else }}Zeiterfassung Pro{{ end }} Logo" class="logo">
         {{ else }}
           <img src="{{ .SiteURL }}/icon.png" alt="Zeiterfassung Pro Logo" class="logo">
+          <h1>{{ if .Data.company_name }}{{ .Data.company_name }}{{ else }}Zeiterfassung Pro{{ end }}</h1>
         {{ end }}
-        <h1>{{ if .Data.company_name }}{{ .Data.company_name }}{{ else }}Zeiterfassung Pro{{ end }}</h1>
       </div>
       <div class="content">
         <p>Hallo,</p>
