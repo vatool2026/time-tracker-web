@@ -877,6 +877,7 @@ export default function DashboardContainer({
                 surchargeSettings={surchargeSettings} 
                 absenceCodes={absenceCodes}
                 startDate={profile?.start_date}
+                profile={profile}
               />
             )}
 

@@ -122,7 +122,7 @@ export default function AdminOverview({
     });
 
     const complianceResults = calculateComplianceViolations(employees || [], allCompanyEntries || [], allCategorySettings || []);
-    const complianceViolations = complianceResults.reduce((sum, res) => sum + res.violations.length, 0);
+    const complianceViolations = complianceResults.reduce((sum, res) => sum + res.violations.filter(v => v.severity === 'error').length, 0);
 
     return {
       totalEmployees: employees.length,

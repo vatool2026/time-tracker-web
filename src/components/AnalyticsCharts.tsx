@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { isGermanHoliday } from '@/utils/holidays';
 import { calculateSurcharges } from '@/utils/surchargeCalculator';
-import { BarChart2, PieChart as PieChartIcon, CalendarDays, Clock, TrendingUp, TrendingDown, Calendar as CalendarIcon, Activity, Sunrise, Moon, Sun, Sunset, Trophy, Coffee } from 'lucide-react';
+import { calculateComplianceViolations } from '@/utils/complianceCalculator';
+import { BarChart2, PieChart as PieChartIcon, CalendarDays, Clock, TrendingUp, TrendingDown, Calendar as CalendarIcon, Activity, Sunrise, Moon, Sun, Sunset, Trophy, Coffee, ShieldAlert } from 'lucide-react';
 import YearlyOverviewTable from './YearlyOverviewTable';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -50,6 +51,7 @@ interface AnalyticsChartsProps {
   surchargeSettings: SurchargeSettings | null;
   absenceCodes?: AbsenceCode[] | null;
   startDate?: string | null;
+  profile?: any;
 }
 
 export default function AnalyticsCharts({
@@ -57,7 +59,8 @@ export default function AnalyticsCharts({
   timesheetSettings,
   surchargeSettings,
   absenceCodes,
-  startDate
+  startDate,
+  profile
 }: AnalyticsChartsProps) {
   const [viewMode, setViewMode] = useState<'charts' | 'yearly'>('charts');
 
@@ -263,6 +266,25 @@ export default function AnalyticsCharts({
   const isEarlyBird = startTimeCount > 0 && avgStartMin < 8 * 60;
   const isNightOwl = startTimeCount > 0 && avgStartMin > 9 * 60 + 30;
 
+  // COMPLIANCE CALCULATION
+  const mockSettings = surchargeSettings ? { ...surchargeSettings, category: profile?.employment_category } : null;
+  const complianceResults = calculateComplianceViolations(
+    profile ? [profile] : [], 
+    entries, 
+    mockSettings ? [mockSettings] : []
+  );
+
+  let currentMonthViolations = 0;
+  if (complianceResults.length > 0) {
+    const allV = complianceResults[0].violations;
+    const monthErrors = allV.filter(v => {
+      if (v.severity !== 'error') return false;
+      const d = new Date(v.date);
+      return d.getMonth() === month && d.getFullYear() === year;
+    });
+    currentMonthViolations = monthErrors.length;
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* View Toggle */}
@@ -336,6 +358,20 @@ export default function AnalyticsCharts({
                   <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--warning)' }}>{sickDays}</div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Krankheitstage</div>
                 </div>
+              </div>
+            </div>
+
+            {/* Compliance Card */}
+            <div className="glass glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', borderLeft: `4px solid ${currentMonthViolations > 0 ? 'var(--danger)' : 'var(--success)'}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600 }}>
+                <ShieldAlert size={16} />
+                Arbeitszeitschutz (Monat)
+              </div>
+              <div style={{ fontSize: '2rem', fontWeight: 800, color: currentMonthViolations > 0 ? 'var(--danger)' : 'var(--success)' }}>
+                {currentMonthViolations} <span style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Verstöße</span>
+              </div>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                {currentMonthViolations === 0 ? 'Alles im grünen Bereich.' : 'Achte auf deine Arbeits- und Pausenzeiten.'}
               </div>
             </div>
 

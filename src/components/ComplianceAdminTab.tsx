@@ -185,7 +185,7 @@ export default function ComplianceAdminTab({
                 <div>
                   <h4 style={{ margin: 0, fontSize: '1.1rem' }}>{item.employee.first_name} {item.employee.last_name}</h4>
                   <span style={{ fontSize: '0.85rem', color: 'var(--danger)', fontWeight: 600 }}>
-                    {item.violations.length} Verstoß/Verstöße
+                    {item.violations.filter(v => v.severity === 'error').length} Verstoß/Verstöße
                   </span>
                 </div>
                 {expandedEmployee === item.employee.id ? <ChevronUp /> : <ChevronDown />}
