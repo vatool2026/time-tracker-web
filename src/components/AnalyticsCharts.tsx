@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { isGermanHoliday } from '@/utils/holidays';
 import { calculateSurcharges } from '@/utils/surchargeCalculator';
 import { calculateComplianceViolations } from '@/utils/complianceCalculator';
-import { BarChart2, PieChart as PieChartIcon, CalendarDays, Clock, TrendingUp, TrendingDown, Calendar as CalendarIcon, Activity, Sunrise, Moon, Sun, Sunset, Trophy, Coffee, ShieldAlert } from 'lucide-react';
+import { BarChart2, PieChart as PieChartIcon, CalendarDays, Clock, TrendingUp, TrendingDown, Calendar as CalendarIcon, Activity, Sunrise, Moon, Sun, Sunset, Trophy, Coffee, ShieldAlert, AlertTriangle, CheckCircle, Info } from 'lucide-react';
 import YearlyOverviewTable from './YearlyOverviewTable';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -62,7 +62,7 @@ export default function AnalyticsCharts({
   startDate,
   profile
 }: AnalyticsChartsProps) {
-  const [viewMode, setViewMode] = useState<'charts' | 'yearly'>('charts');
+  const [viewMode, setViewMode] = useState<'charts' | 'yearly' | 'violations'>('charts');
 
   const tsSet = timesheetSettings || {
     target_hours_monday: 8,
@@ -305,6 +305,14 @@ export default function AnalyticsCharts({
           <CalendarDays size={16} />
           Jahresübersicht
         </button>
+        <button
+          className={`btn ${viewMode === 'violations' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setViewMode('violations')}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+        >
+          <ShieldAlert size={16} />
+          Verstöße (ArbZG)
+        </button>
       </div>
 
       {viewMode === 'charts' ? (
@@ -484,7 +492,7 @@ export default function AnalyticsCharts({
           </div>
 
         </div>
-      ) : (
+      ) : viewMode === 'yearly' ? (
         <YearlyOverviewTable 
           entries={entries}
           timesheetSettings={tsSet}
@@ -492,6 +500,42 @@ export default function AnalyticsCharts({
           absenceCodes={absenceCodes || []}
           startDate={startDate}
         />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {(!complianceResults || complianceResults.length === 0 || complianceResults[0].violations.length === 0) ? (
+            <div className="glass glass-card" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+              <CheckCircle size={48} style={{ opacity: 0.2, margin: '0 auto 1rem auto', color: 'var(--success)' }} />
+              <h4 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Keine Verstöße gefunden</h4>
+              <p>Es wurden keine Arbeitszeitverstöße in den erfassten Zeiten gefunden. Weiter so!</p>
+            </div>
+          ) : (
+            complianceResults[0].violations.map((v, i) => (
+              <div key={i} className="glass glass-card" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', padding: '1.5rem', borderLeft: `4px solid ${v.severity === 'error' ? 'var(--danger)' : 'var(--accent-secondary)'}` }}>
+                <div style={{ display: 'flex', flexDirection: 'column', minWidth: '100px' }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Datum</span>
+                  <span style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {new Date(v.date).toLocaleDateString('de-DE')}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
+                  {v.severity === 'error' ? (
+                    <AlertTriangle size={24} style={{ color: 'var(--danger)', flexShrink: 0 }} />
+                  ) : (
+                    <Info size={24} style={{ color: 'var(--accent-secondary)', flexShrink: 0 }} />
+                  )}
+                  <div>
+                    <h4 style={{ margin: 0, fontSize: '1.1rem', color: v.severity === 'error' ? 'var(--danger)' : 'var(--accent-secondary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {v.type}
+                    </h4>
+                    <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
+                      {v.description}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       )}
     </div>
   );
