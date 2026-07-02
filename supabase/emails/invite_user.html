@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Einladung - Zeiterfassung Pro</title>
+  <title>Einladung - {{ if .Data.company_name }}{{ .Data.company_name }}{{ else }}Zeiterfassung Pro{{ end }}</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
     .wrapper { padding: 40px 20px; background-color: #f8fafc; }
@@ -23,12 +23,16 @@
   <div class="wrapper">
     <div class="container">
       <div class="header">
-        <img src="{{ .SiteURL }}/logo.png" alt="Zeiterfassung Pro Logo" class="logo">
-        <h1>Zeiterfassung Pro</h1>
+        {{ if .Data.company_logo_url }}
+          <img src="{{ .Data.company_logo_url }}" alt="{{ if .Data.company_name }}{{ .Data.company_name }}{{ else }}Zeiterfassung Pro{{ end }} Logo" class="logo">
+        {{ else }}
+          <img src="{{ .SiteURL }}/icon.png" alt="Zeiterfassung Pro Logo" class="logo">
+        {{ end }}
+        <h1>{{ if .Data.company_name }}{{ .Data.company_name }}{{ else }}Zeiterfassung Pro{{ end }}</h1>
       </div>
       <div class="content">
         <p>Hallo,</p>
-        <p>du wurdest eingeladen, Zeiterfassung Pro zu nutzen. Klicke auf den untenstehenden Button, um deine Einladung anzunehmen und dein Konto einzurichten.</p>
+        <p>du wurdest eingeladen, {{ if .Data.company_name }}{{ .Data.company_name }}{{ else }}Zeiterfassung Pro{{ end }} zu nutzen. Klicke auf den untenstehenden Button, um deine Einladung anzunehmen und dein Konto einzurichten.</p>
         
         <div class="btn-container">
           <a href="{{ .ConfirmationURL }}" class="btn">Einladung annehmen</a>
@@ -37,7 +41,7 @@
         <p class="text-sm" style="margin-top: 30px;">Falls du diese Einladung nicht erwartet hast, kannst du diese E-Mail einfach ignorieren.</p>
       </div>
       <div class="footer">
-        &copy; 2026 Zeiterfassung Pro. Alle Rechte vorbehalten.
+        &copy; 2026 {{ if .Data.company_name }}{{ .Data.company_name }}{{ else }}Zeiterfassung Pro{{ end }}. Alle Rechte vorbehalten.
       </div>
     </div>
   </div>

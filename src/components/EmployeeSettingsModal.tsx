@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState } from 'react';
-import { updateEmployeeSettingsAction } from '@/app/actions';
-import { X, Save, AlertCircle, Check } from 'lucide-react';
+import { updateEmployeeSettingsAction, deleteCompanyUserAction } from '@/app/actions';
+import { X, Save, AlertCircle, Check, Trash2 } from 'lucide-react';
 import CustomSelect from './CustomSelect';
 
 interface EmployeeProfile {
@@ -97,6 +97,28 @@ export default function EmployeeSettingsModal({
       setMessage({ type: 'success', text: 'Mitarbeiter-Einstellungen erfolgreich gespeichert!' });
       setTimeout(() => {
         onClose();
+      }, 1500);
+    } else {
+      setMessage({ type: 'error', text: res.message });
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('Möchten Sie diesen Benutzer wirklich endgültig löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) {
+      return;
+    }
+    
+    setLoading(true);
+    setMessage(null);
+    
+    const res = await deleteCompanyUserAction(employee.id);
+    
+    setLoading(false);
+    if (res.success) {
+      setMessage({ type: 'success', text: 'Benutzer wurde erfolgreich gelöscht.' });
+      setTimeout(() => {
+        onClose();
+        if (typeof window !== 'undefined') window.location.reload();
       }, 1500);
     } else {
       setMessage({ type: 'error', text: res.message });
@@ -329,13 +351,24 @@ export default function EmployeeSettingsModal({
           )}
 
           {/* Footer Actions */}
-          <div className="flex-end" style={{ borderTop: '1px solid var(--glass-border)', paddingTop: '1.25rem', gap: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
-            <button type="button" onClick={onClose} className="btn btn-secondary glass" disabled={loading}>
-              Abbrechen
+          <div className="flex-between" style={{ borderTop: '1px solid var(--glass-border)', paddingTop: '1.25rem', gap: '1rem', display: 'flex' }}>
+            <button 
+              type="button" 
+              onClick={handleDelete} 
+              className="btn btn-secondary glass" 
+              disabled={loading || role === 'ROOT'} 
+              style={{ color: role === 'ROOT' ? 'inherit' : 'var(--danger)', borderColor: role === 'ROOT' ? 'inherit' : 'var(--danger)' }}
+            >
+              <Trash2 size={18} /> Benutzer löschen
             </button>
-            <button type="submit" className="btn btn-primary" disabled={loading} style={{ minWidth: '130px' }}>
-              {loading ? 'Wird gespeichert...' : <><Save size={18} /> Speichern</>}
-            </button>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button type="button" onClick={onClose} className="btn btn-secondary glass" disabled={loading}>
+                Abbrechen
+              </button>
+              <button type="submit" className="btn btn-primary" disabled={loading} style={{ minWidth: '130px' }}>
+                {loading ? 'Wird gespeichert...' : <><Save size={18} /> Speichern</>}
+              </button>
+            </div>
           </div>
 
         </form>

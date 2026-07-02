@@ -1,13 +1,17 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, Suspense, useEffect } from 'react';
 import { loginAction } from '@/app/actions';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ThemeToggle';
 import { createClient } from '@/utils/supabase/client';
 import { Mail, Lock, LogIn, AlertCircle, ArrowRight, Shield, Fingerprint } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 
-export default function LoginPage() {
+function LoginForm() {
+  const searchParams = useSearchParams();
+  const urlError = searchParams.get('error');
+  
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [mfaRequired, setMfaRequired] = useState<boolean>(false);
@@ -15,6 +19,26 @@ export default function LoginPage() {
   const [verifyCode, setVerifyCode] = useState<string>('');
 
   const supabase = createClient();
+
+  useEffect(() => {
+    if (urlError) {
+      setError(urlError);
+    }
+    
+    // Also check hash for Supabase specific errors
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const hashError = hashParams.get('error_description') || hashParams.get('error');
+      if (hashError) {
+        // Decode and translate common Supabase errors
+        let displayError = decodeURIComponent(hashError.replace(/\+/g, ' '));
+        if (displayError.includes('Email link is invalid or has expired')) {
+          displayError = 'Der Einladungslink ist ungültig oder abgelaufen. Bitte nutzen Sie "Passwort vergessen?", um ein neues Passwort festzulegen.';
+        }
+        setError(displayError);
+      }
+    }
+  }, [urlError]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -56,14 +80,14 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
 
-    const { error } = await supabase.auth.mfa.challengeAndVerify({
+    const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
       factorId,
       code: verifyCode
     });
 
     setLoading(false);
 
-    if (error) {
+    if (verifyError) {
       setError('Der eingegebene Code ist falsch.');
     } else {
       window.location.href = '/dashboard';
@@ -74,9 +98,9 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPasskey();
-      if (error) {
-        throw error;
+      const { error: passkeyError } = await supabase.auth.signInWithPasskey();
+      if (passkeyError) {
+        throw passkeyError;
       }
       window.location.href = '/dashboard';
     } catch (err: any) {
@@ -87,8 +111,7 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="container flex-center" style={{ minHeight: '100vh', flexDirection: 'column', padding: '1rem', position: 'relative' }}>
-      
+    <>
       {/* Top right theme toggle */}
       <div style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', zIndex: 50 }}>
         <ThemeToggle />
@@ -114,11 +137,11 @@ export default function LoginPage() {
             fontSize: '0.9rem',
             marginBottom: '1.5rem',
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'flex-start',
             gap: '0.5rem'
           }}>
-            <AlertCircle size={18} />
-            <span>{error}</span>
+            <AlertCircle size={18} style={{ marginTop: '0.1rem', flexShrink: 0 }} />
+            <span style={{ lineHeight: 1.4 }}>{error}</span>
           </div>
         )}
 
@@ -227,6 +250,16 @@ export default function LoginPage() {
         </div>
 
       </div>
+    </>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <main className="container flex-center" style={{ minHeight: '100vh', flexDirection: 'column', padding: '1rem', position: 'relative' }}>
+      <Suspense fallback={<div style={{ width: '100%', maxWidth: '440px', height: '500px' }} className="glass glass-card" />}>
+        <LoginForm />
+      </Suspense>
     </main>
   );
 }

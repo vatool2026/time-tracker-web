@@ -970,6 +970,13 @@ export async function inviteEmployeeAction(
     return { success: false, message: 'Keine Administratorrechte.' };
   }
 
+  // Fetch company info for the email template
+  const { data: companyData } = await supabase
+    .from('companies')
+    .select('name, logo_url')
+    .eq('id', callerProfile.company_id)
+    .single();
+
   // Use the service role key to invite user without affecting the current session
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceRoleKey) {
@@ -985,6 +992,10 @@ export async function inviteEmployeeAction(
   // 1. Invite the user
   const siteUrl = await getSiteUrl();
   const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+    data: {
+      company_name: companyData?.name || 'Zeiterfassung Pro',
+      company_logo_url: companyData?.logo_url || ''
+    },
     redirectTo: `${siteUrl}/auth/confirm?next=/setup-password`
   });
 
@@ -1366,4 +1377,48 @@ export async function deleteOvertimePayoutAction(id: string): Promise<ActionResp
   }
   revalidatePath('/dashboard');
   return { success: true, message: 'Auszahlung gelöscht.' };
+}
+
+/**
+ * Deletes a user (Company Admin only, must be same company).
+ */
+export async function deleteCompanyUserAction(userIdToDelete: string): Promise<ActionResponse> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, message: 'Nicht authentifiziert' };
+
+  if (userIdToDelete === user.id) return { success: false, message: 'Du kannst dich nicht selbst löschen' };
+
+  const { data: callerProfile } = await supabase.from('profiles').select('role, company_id').eq('id', user.id).single();
+  if (!callerProfile || (callerProfile.role !== 'COMPANY_ADMIN' && callerProfile.role !== 'ROOT')) {
+    return { success: false, message: 'Keine Berechtigung' };
+  }
+
+  // Ensure target user belongs to the same company, unless caller is ROOT
+  const { data: targetProfile } = await supabase.from('profiles').select('company_id').eq('id', userIdToDelete).single();
+  if (!targetProfile) {
+    return { success: false, message: 'Benutzer nicht gefunden' };
+  }
+
+  if (callerProfile.role !== 'ROOT' && targetProfile.company_id !== callerProfile.company_id) {
+    return { success: false, message: 'Keine Berechtigung, diesen Benutzer zu löschen' };
+  }
+
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) {
+     return { success: false, message: 'Serverkonfiguration: SUPABASE_SERVICE_ROLE_KEY fehlt.' };
+  }
+
+  const { createClient: createSupabaseClient } = await import('@supabase/supabase-js');
+  const adminClient = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    serviceRoleKey,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+
+  const { error } = await adminClient.auth.admin.deleteUser(userIdToDelete);
+  if (error) return { success: false, message: error.message };
+
+  revalidatePath('/dashboard');
+  return { success: true, message: 'Benutzer erfolgreich gelöscht.' };
 }
