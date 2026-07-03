@@ -25,6 +25,7 @@ interface TimeEntry {
   original_end_time?: string | null;
   isSpillover?: boolean;
   break_minutes: number;
+  break_logs?: any[];
   absence_code: string | null;
   note: string | null;
   edit_reason?: string | null;

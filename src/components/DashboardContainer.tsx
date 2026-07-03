@@ -41,6 +41,7 @@ interface TimeEntry {
   start_time: string;
   end_time: string | null;
   break_minutes: number;
+  break_logs?: any[];
   absence_code: string | null;
   note: string | null;
   deleted_at?: string | null;
