@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { isGermanHoliday } from '@/utils/holidays';
 import { calculateSurcharges } from '@/utils/surchargeCalculator';
 import { calculateComplianceViolations } from '@/utils/complianceCalculator';
@@ -18,6 +18,7 @@ interface TimeEntry {
   end_time: string | null;
   break_minutes: number;
   absence_code: string | null;
+  deleted_at?: string | null;
 }
 
 interface TimesheetSettings {
@@ -52,17 +53,21 @@ interface AnalyticsChartsProps {
   absenceCodes?: AbsenceCode[] | null;
   startDate?: string | null;
   profile?: any;
+  companyHolidays?: any[] | null;
 }
 
 export default function AnalyticsCharts({
-  entries,
+  entries: allEntries,
   timesheetSettings,
   surchargeSettings,
   absenceCodes,
   startDate,
-  profile
+  profile,
+  companyHolidays
 }: AnalyticsChartsProps) {
-  const [viewMode, setViewMode] = useState<'charts' | 'yearly' | 'violations'>('charts');
+  const entries = useMemo(() => allEntries.filter(e => !e.deleted_at), [allEntries]);
+  const [viewMode, setViewMode] = useState<'charts' | 'yearly'>('charts');
+  const [timeframe, setTimeframe] = useState<string>('current_month');
 
   const tsSet = timesheetSettings || {
     target_hours_monday: 8,
@@ -86,7 +91,7 @@ export default function AnalyticsCharts({
     const dStr = date.toISOString().split('T')[0];
     if (startDate && new Date(dStr) < new Date(startDate)) return 0;
 
-    if (isGermanHoliday(date).isHoliday) return 0;
+    if (isGermanHoliday(date, profile?.companies?.state, companyHolidays || undefined).isHoliday) return 0;
     const day = date.getDay();
     switch (day) {
       case 1: return tsSet.target_hours_monday;
@@ -101,65 +106,211 @@ export default function AnalyticsCharts({
   };
 
   const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
 
-  const daysInMonth: Date[] = [];
-  const date = new Date(year, month, 1);
-  while (date.getMonth() === month) {
-    daysInMonth.push(new Date(date));
-    date.setDate(date.getDate() + 1);
+  const getDateRange = () => {
+    let start, end;
+    switch (timeframe) {
+      case 'last_month':
+        start = new Date(currentYear, currentMonth - 1, 1);
+        end = new Date(currentYear, currentMonth, 0);
+        break;
+      case 'current_year':
+        start = new Date(currentYear, 0, 1);
+        end = new Date(currentYear, 11, 31);
+        break;
+      case 'last_year':
+        start = new Date(currentYear - 1, 0, 1);
+        end = new Date(currentYear - 1, 11, 31);
+        break;
+      case 'q1':
+        start = new Date(currentYear, 0, 1);
+        end = new Date(currentYear, 2, 31);
+        break;
+      case 'q2':
+        start = new Date(currentYear, 3, 1);
+        end = new Date(currentYear, 5, 30);
+        break;
+      case 'q3':
+        start = new Date(currentYear, 6, 1);
+        end = new Date(currentYear, 8, 30);
+        break;
+      case 'q4':
+        start = new Date(currentYear, 9, 1);
+        end = new Date(currentYear, 11, 31);
+        break;
+      case 'all_time':
+        start = new Date(2000, 0, 1);
+        end = new Date(2100, 0, 1);
+        break;
+      case 'current_month':
+      default:
+        start = new Date(currentYear, currentMonth, 1);
+        end = new Date(currentYear, currentMonth + 1, 0);
+        break;
+    }
+    return { start, end };
+  };
+
+  const { start: periodStartRaw, end: periodEndRaw } = getDateRange();
+  
+  let periodStart = periodStartRaw;
+  let periodEnd = periodEndRaw;
+
+  if (timeframe === 'all_time') {
+     const sortedEntries = [...entries].sort((a,b) => a.entry_date.localeCompare(b.entry_date));
+     if (sortedEntries.length > 0) {
+        periodStart = new Date(sortedEntries[0].entry_date);
+        periodEnd = now > new Date(sortedEntries[sortedEntries.length-1].entry_date) ? now : new Date(sortedEntries[sortedEntries.length-1].entry_date);
+     } else {
+        periodStart = new Date(currentYear, 0, 1);
+        periodEnd = now;
+     }
   }
+
+  // Filter entries within period
+  const periodEntries = entries.filter(e => {
+    const d = new Date(e.entry_date);
+    return d >= periodStart && d <= periodEnd;
+  });
+
+  const durationDays = (periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24);
+  const groupByMonth = durationDays > 100; // if more than ~3 months, group by month
 
   let totalTargetHours = 0;
   let totalWorkedHours = 0;
   let vacationDays = 0;
   let sickDays = 0;
 
-  const dailyData = daysInMonth.map(day => {
-    const dStr = day.getDate().toString().padStart(2, '0');
-    const mStr = (day.getMonth() + 1).toString().padStart(2, '0');
-    const yStr = day.getFullYear();
-    const dateStr = `${yStr}-${mStr}-${dStr}`;
-    const dayNum = day.getDate();
-    
-    const isPastOrToday = day <= now;
-    
-    let target = getTargetHoursForDate(day);
-    let actual = 0;
+  const chartData = [];
 
-    const entry = entries.find(e => e.entry_date === dateStr);
-    if (entry) {
-      if (entry.absence_code === 'U') {
-        vacationDays++;
-        actual = target;
-      } else if (entry.absence_code === 'K') {
-        sickDays++;
-        actual = target;
-      } else if (!entry.absence_code && entry.end_time) {
-        const surch = calculateSurcharges(
-          entry.entry_date,
-          entry.start_time,
-          entry.end_time,
-          entry.break_minutes || 0,
-          surchSet
-        );
-        actual = surch.workedHours;
+  if (groupByMonth) {
+    // Group by month
+    const iterDate = new Date(periodStart.getFullYear(), periodStart.getMonth(), 1);
+    const endMonthDate = new Date(periodEnd.getFullYear(), periodEnd.getMonth(), 1);
+
+    while (iterDate <= endMonthDate) {
+      const y = iterDate.getFullYear();
+      const m = iterDate.getMonth();
+      const label = `${iterDate.toLocaleString('de-DE', { month: 'short' })} ${y}`;
+      
+      let monthTarget = 0;
+      let monthActual = 0;
+
+      // Calculate for all days in this month
+      const daysInMonth = new Date(y, m + 1, 0).getDate();
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dayDate = new Date(y, m, d);
+        if (dayDate > periodEnd || dayDate < periodStart) continue;
+
+        const dateStr = `${y}-${(m + 1).toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
+        const isPastOrToday = dayDate <= now;
+
+        let target = getTargetHoursForDate(dayDate);
+        let actual = 0;
+
+        const entry = entries.find(e => e.entry_date === dateStr);
+        if (entry) {
+          let isDummy = false;
+          if (entry.absence_code) {
+            const codeObj = absenceCodes?.find(c => c.code === entry.absence_code);
+            if (codeObj) {
+              target = target * codeObj.factor;
+              if (codeObj.code === 'U') vacationDays++;
+              if (codeObj.code === 'K' || codeObj.code === 'KR') sickDays++;
+            }
+            if (entry.start_time === '00:00:00' && entry.end_time === '00:00:00' && entry.break_minutes === 0) {
+              isDummy = true;
+            }
+          }
+          
+          if (!isDummy && entry.end_time) {
+            const surch = calculateSurcharges(
+              entry.entry_date,
+              entry.start_time,
+              entry.end_time,
+              entry.break_minutes || 0,
+              surchSet
+            );
+            actual = surch.workedHours;
+          }
+        }
+
+        if (isPastOrToday) {
+          monthTarget += target;
+          monthActual += actual;
+          totalTargetHours += target;
+          totalWorkedHours += actual;
+        }
       }
-    }
 
-    if (isPastOrToday) {
-      totalTargetHours += target;
-      totalWorkedHours += actual;
-    }
+      chartData.push({
+        date: label,
+        fullDate: label,
+        target: parseFloat(monthTarget.toFixed(1)),
+        actual: parseFloat(monthActual.toFixed(1))
+      });
 
-    return {
-      date: `${dayNum}.`,
-      fullDate: dateStr,
-      target,
-      actual
-    };
-  });
+      iterDate.setMonth(iterDate.getMonth() + 1);
+    }
+  } else {
+    // Group by day
+    const iterDate = new Date(periodStart);
+    while (iterDate <= periodEnd) {
+      const dStr = iterDate.getDate().toString().padStart(2, '0');
+      const mStr = (iterDate.getMonth() + 1).toString().padStart(2, '0');
+      const yStr = iterDate.getFullYear();
+      const dateStr = `${yStr}-${mStr}-${dStr}`;
+      const dayNum = iterDate.getDate();
+      
+      const isPastOrToday = iterDate <= now;
+      
+      let target = getTargetHoursForDate(iterDate);
+      let actual = 0;
+
+      const entry = entries.find(e => e.entry_date === dateStr);
+      if (entry) {
+        let isDummy = false;
+        if (entry.absence_code) {
+          const codeObj = absenceCodes?.find(c => c.code === entry.absence_code);
+          if (codeObj) {
+            target = target * codeObj.factor;
+            if (codeObj.code === 'U') vacationDays++;
+            if (codeObj.code === 'K' || codeObj.code === 'KR') sickDays++;
+          }
+          if (entry.start_time === '00:00:00' && entry.end_time === '00:00:00' && entry.break_minutes === 0) {
+            isDummy = true;
+          }
+        }
+        
+        if (!isDummy && entry.end_time) {
+          const surch = calculateSurcharges(
+            entry.entry_date,
+            entry.start_time,
+            entry.end_time,
+            entry.break_minutes || 0,
+            surchSet
+          );
+          actual = surch.workedHours;
+        }
+      }
+
+      if (isPastOrToday) {
+        totalTargetHours += target;
+        totalWorkedHours += actual;
+      }
+
+      chartData.push({
+        date: `${dayNum}.`,
+        fullDate: dateStr,
+        target: parseFloat(target.toFixed(1)),
+        actual: parseFloat(actual.toFixed(1))
+      });
+
+      iterDate.setDate(iterDate.getDate() + 1);
+    }
+  }
 
   const overtime = totalWorkedHours - totalTargetHours;
   const isOvertimePositive = overtime >= 0;
@@ -185,12 +336,7 @@ export default function AnalyticsCharts({
 
   const getDayName = (d: number) => ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][d];
 
-  const currentMonthEntries = entries.filter(e => {
-    const d = new Date(e.entry_date);
-    return d.getMonth() === month && d.getFullYear() === year;
-  });
-
-  currentMonthEntries.forEach(entry => {
+  periodEntries.forEach(entry => {
     if (entry.break_minutes) totalBreakMinutes += entry.break_minutes;
 
     if (entry.start_time) {
@@ -221,7 +367,7 @@ export default function AnalyticsCharts({
 
       if (surch.workedHours > maxWorkedHours) {
         maxWorkedHours = surch.workedHours;
-        maxWorkedDayStr = new Date(entry.entry_date).toLocaleDateString('de-DE', { day: '2-digit', month: 'long' });
+        maxWorkedDayStr = new Date(entry.entry_date).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
       }
     }
   });
@@ -266,7 +412,7 @@ export default function AnalyticsCharts({
   const isEarlyBird = startTimeCount > 0 && avgStartMin < 8 * 60;
   const isNightOwl = startTimeCount > 0 && avgStartMin > 9 * 60 + 30;
 
-  // COMPLIANCE CALCULATION
+  // COMPLIANCE CALCULATION for the selected period
   const mockSettings = surchargeSettings ? { ...surchargeSettings, category: profile?.employment_category } : null;
   const complianceResults = calculateComplianceViolations(
     profile ? [profile] : [], 
@@ -274,45 +420,76 @@ export default function AnalyticsCharts({
     mockSettings ? [mockSettings] : []
   );
 
-  let currentMonthViolations = 0;
+  let periodViolations = 0;
   if (complianceResults.length > 0) {
     const allV = complianceResults[0].violations;
-    const monthErrors = allV.filter(v => {
+    const errorsInPeriod = allV.filter(v => {
       if (v.severity !== 'error') return false;
       const d = new Date(v.date);
-      return d.getMonth() === month && d.getFullYear() === year;
+      return d >= periodStart && d <= periodEnd;
     });
-    currentMonthViolations = monthErrors.length;
+    periodViolations = errorsInPeriod.length;
   }
+
+  const getTimeframeLabel = () => {
+    const options: Record<string, string> = {
+      'current_month': 'Aktueller Monat',
+      'last_month': 'Letzter Monat',
+      'current_year': 'Aktuelles Jahr',
+      'last_year': 'Letztes Jahr',
+      'q1': '1. Quartal',
+      'q2': '2. Quartal',
+      'q3': '3. Quartal',
+      'q4': '4. Quartal',
+      'all_time': 'Komplett'
+    };
+    return options[timeframe] || 'Ausgewählter Zeitraum';
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* View Toggle */}
-      <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '1rem' }}>
-        <button
-          className={`btn ${viewMode === 'charts' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setViewMode('charts')}
-          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-        >
-          <PieChartIcon size={16} />
-          Übersicht (Monat)
-        </button>
-        <button
-          className={`btn ${viewMode === 'yearly' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setViewMode('yearly')}
-          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-        >
-          <CalendarDays size={16} />
-          Jahresübersicht
-        </button>
-        <button
-          className={`btn ${viewMode === 'violations' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setViewMode('violations')}
-          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-        >
-          <ShieldAlert size={16} />
-          Verstöße (ArbZG)
-        </button>
+      <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '1rem', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <button
+            className={`btn ${viewMode === 'charts' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setViewMode('charts')}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <PieChartIcon size={16} />
+            Übersicht
+          </button>
+          <button
+            className={`btn ${viewMode === 'yearly' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setViewMode('yearly')}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <CalendarDays size={16} />
+            Jahresübersicht
+          </button>
+        </div>
+
+        {viewMode === 'charts' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Zeitraum:</span>
+            <select
+              value={timeframe}
+              onChange={(e) => setTimeframe(e.target.value)}
+              className="input-field"
+              style={{ padding: '0.4rem 2rem 0.4rem 0.75rem', minWidth: '160px', cursor: 'pointer' }}
+            >
+              <option value="current_month">Aktueller Monat</option>
+              <option value="last_month">Letzter Monat</option>
+              <option value="q1">1. Quartal</option>
+              <option value="q2">2. Quartal</option>
+              <option value="q3">3. Quartal</option>
+              <option value="q4">4. Quartal</option>
+              <option value="current_year">Aktuelles Jahr</option>
+              <option value="last_year">Letztes Jahr</option>
+              <option value="all_time">Komplett</option>
+            </select>
+          </div>
+        )}
       </div>
 
       {viewMode === 'charts' ? (
@@ -325,13 +502,13 @@ export default function AnalyticsCharts({
             <div className="glass glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600 }}>
                 <Clock size={16} />
-                Aktueller Monat
+                Arbeitszeit ({getTimeframeLabel()})
               </div>
               <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)' }}>
                 {totalWorkedHours.toFixed(1)} <span style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', fontWeight: 600 }}>/ {totalTargetHours.toFixed(1)} h</span>
               </div>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                Ist-Stunden vs. Soll-Stunden (bis heute)
+                Ist-Stunden vs. Soll-Stunden
               </div>
             </div>
 
@@ -339,7 +516,7 @@ export default function AnalyticsCharts({
             <div className="glass glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600 }}>
                 <Activity size={16} />
-                Überstunden (Monat)
+                Überstunden ({getTimeframeLabel()})
               </div>
               <div style={{ fontSize: '2rem', fontWeight: 800, color: isOvertimePositive ? 'var(--success)' : 'var(--danger)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 {isOvertimePositive ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
@@ -370,37 +547,37 @@ export default function AnalyticsCharts({
             </div>
 
             {/* Compliance Card */}
-            <div className="glass glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', borderLeft: `4px solid ${currentMonthViolations > 0 ? 'var(--danger)' : 'var(--success)'}` }}>
+            <div className="glass glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', borderLeft: `4px solid ${periodViolations > 0 ? 'var(--danger)' : 'var(--success)'}` }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600 }}>
                 <ShieldAlert size={16} />
-                Arbeitszeitschutz (Monat)
+                Arbeitszeitschutz ({getTimeframeLabel()})
               </div>
-              <div style={{ fontSize: '2rem', fontWeight: 800, color: currentMonthViolations > 0 ? 'var(--danger)' : 'var(--success)' }}>
-                {currentMonthViolations} <span style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Verstöße</span>
+              <div style={{ fontSize: '2rem', fontWeight: 800, color: periodViolations > 0 ? 'var(--danger)' : 'var(--success)' }}>
+                {periodViolations} <span style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Verstöße</span>
               </div>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                {currentMonthViolations === 0 ? 'Alles im grünen Bereich.' : 'Achte auf deine Arbeits- und Pausenzeiten.'}
+                {periodViolations === 0 ? 'Alles im grünen Bereich.' : 'Achte auf deine Arbeits- und Pausenzeiten.'}
               </div>
             </div>
 
           </div>
 
-          {/* Daily Bar Chart */}
+          {/* Bar Chart */}
           <div className="glass glass-card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', minHeight: '400px' }}>
             <h3 style={{ fontSize: '1.2rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
-              <BarChart2 size={18} className="text-gradient" /> Tägliche Arbeitszeit (Aktueller Monat)
+              <BarChart2 size={18} className="text-gradient" /> Arbeitszeit-Verlauf ({getTimeframeLabel()})
             </h3>
 
             <div style={{ width: '100%', height: '300px', marginTop: 'auto' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={dailyData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+                <ComposedChart data={chartData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" />
                   <XAxis dataKey="date" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={5} />
                   <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(val) => `${val}h`} />
                   <Tooltip 
                     cursor={{ fill: 'var(--glass-border)', opacity: 0.4 }}
                     contentStyle={{ backgroundColor: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--glass-border)', color: 'var(--text-primary)' }}
-                    labelFormatter={(label) => `Tag: ${label}`}
+                    labelFormatter={(label, payload) => payload && payload.length > 0 ? payload[0].payload.fullDate : label}
                   />
                   <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
                   <defs>
@@ -418,7 +595,7 @@ export default function AnalyticsCharts({
 
           {/* Fun Facts Section */}
           <div style={{ marginTop: '1rem' }}>
-            <h3 style={{ fontSize: '1.2rem', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>✨ Fun Facts (Diesen Monat)</h3>
+            <h3 style={{ fontSize: '1.2rem', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>✨ Fun Facts ({getTimeframeLabel()})</h3>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
               
@@ -484,7 +661,7 @@ export default function AnalyticsCharts({
                 </div>
                 <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>{totalBreakHours} h</div>
                 <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                  So viel Zeit hast du in diesem Monat bereits in der Pause verbracht. Erholung ist wichtig!
+                  So viel Zeit hast du in diesem Zeitraum bereits in der Pause verbracht. Erholung ist wichtig!
                 </div>
               </div>
 
@@ -492,50 +669,16 @@ export default function AnalyticsCharts({
           </div>
 
         </div>
-      ) : viewMode === 'yearly' ? (
+      ) : (
         <YearlyOverviewTable 
           entries={entries}
           timesheetSettings={tsSet}
           surchargeSettings={surchSet}
           absenceCodes={absenceCodes || []}
           startDate={startDate}
+          companyState={profile?.companies?.state}
+          companyHolidays={companyHolidays || undefined}
         />
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {(!complianceResults || complianceResults.length === 0 || complianceResults[0].violations.length === 0) ? (
-            <div className="glass glass-card" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-              <CheckCircle size={48} style={{ opacity: 0.2, margin: '0 auto 1rem auto', color: 'var(--success)' }} />
-              <h4 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Keine Verstöße gefunden</h4>
-              <p>Es wurden keine Arbeitszeitverstöße in den erfassten Zeiten gefunden. Weiter so!</p>
-            </div>
-          ) : (
-            complianceResults[0].violations.map((v, i) => (
-              <div key={i} className="glass glass-card" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', padding: '1.5rem', borderLeft: `4px solid ${v.severity === 'error' ? 'var(--danger)' : 'var(--accent-secondary)'}` }}>
-                <div style={{ display: 'flex', flexDirection: 'column', minWidth: '100px' }}>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Datum</span>
-                  <span style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    {new Date(v.date).toLocaleDateString('de-DE')}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
-                  {v.severity === 'error' ? (
-                    <AlertTriangle size={24} style={{ color: 'var(--danger)', flexShrink: 0 }} />
-                  ) : (
-                    <Info size={24} style={{ color: 'var(--accent-secondary)', flexShrink: 0 }} />
-                  )}
-                  <div>
-                    <h4 style={{ margin: 0, fontSize: '1.1rem', color: v.severity === 'error' ? 'var(--danger)' : 'var(--accent-secondary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      {v.type}
-                    </h4>
-                    <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-                      {v.description}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
       )}
     </div>
   );

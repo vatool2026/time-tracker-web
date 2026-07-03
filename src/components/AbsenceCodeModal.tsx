@@ -132,7 +132,7 @@ export default function AbsenceCodeModal({ absenceCode, onClose }: AbsenceCodeMo
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Faktor für Soll-Arbeitszeit (z.B. 1.0 = ganzer Tag, 0.5 = halber Tag, 0.0 = Sollzeit wird 0)</label>
+            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Faktor für Soll-Arbeitszeit (z.B. 0.0 = Sollzeit entfällt komplett, 0.5 = halber Tag Sollzeit, 1.0 = Sollzeit bleibt zu 100%)</label>
             <input type="number" step="0.1" value={factor} onChange={e => setFactor(e.target.value)} className="input-field" disabled={isPending} />
           </div>
 

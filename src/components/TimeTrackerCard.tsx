@@ -173,17 +173,20 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
     const endVal = Date.now();
     const elapsedMinutes = Math.max(1, Math.round((endVal - breakStartVal) / (1000 * 60)));
 
+    const startIso = new Date(breakStartVal).toISOString();
+    const endIso = new Date(endVal).toISOString();
+
     setIsOnBreak(false);
     setBreakStartVal(null);
     sessionStorage.removeItem('break_start_time');
 
     if (!navigator.onLine) {
-      await addOfflineAction('recordBreakAction', { minutes: elapsedMinutes });
+      await addOfflineAction('recordBreakAction', { minutes: elapsedMinutes, startIso, endIso });
       showMsg('success', 'Pause beendet (Offline gespeichert).');
       return;
     }
 
-    const res = await recordBreakAction(elapsedMinutes);
+    const res = await recordBreakAction(elapsedMinutes, startIso, endIso);
     if (res.success) {
       showMsg('success', `Pause beendet: ${elapsedMinutes} Minuten wurden erfasst.`);
     } else {

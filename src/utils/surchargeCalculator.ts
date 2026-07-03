@@ -6,6 +6,7 @@ export interface SurchargeSettings {
   night_surcharge_rate: number;       // e.g. 25.0 (%)
   sunday_surcharge_rate: number;      // e.g. 50.0 (%)
   holiday_surcharge_rate: number;     // e.g. 100.0 (%)
+  auto_break_deduction_enabled?: boolean;
 }
 
 export interface CalculatedSurcharges {
@@ -59,7 +60,10 @@ export function calculateSurcharges(
   startTimeStr: string, // "HH:MM:SS" or "HH:MM"
   endTimeStr: string | null,   // "HH:MM:SS" or "HH:MM"
   breakMinutes: number,
-  settings: SurchargeSettings
+  settings: SurchargeSettings,
+  companyState?: string,
+  companyHolidays?: any[],
+  breakLogs?: any[]
 ): CalculatedSurcharges {
   const zeroSurcharges: CalculatedSurcharges = {
     workedHours: 0, workedHoursDay1: 0, workedHoursDay2: 0,
@@ -85,7 +89,17 @@ export function calculateSurcharges(
 
   const totalDurationMs = endDate.getTime() - startDate.getTime();
   const rawDurationHours = totalDurationMs / (1000 * 60 * 60);
-  const breakHours = breakMinutes / 60;
+  
+  let breakHours = breakMinutes / 60;
+  
+  if (settings.auto_break_deduction_enabled) {
+    if (rawDurationHours > 9) {
+      breakHours = Math.max(breakHours, 45 / 60);
+    } else if (rawDurationHours > 6) {
+      breakHours = Math.max(breakHours, 30 / 60);
+    }
+  }
+  
   const workedHours = Math.max(0, rawDurationHours - breakHours);
 
   if (workedHours <= 0) return zeroSurcharges;
@@ -104,8 +118,50 @@ export function calculateSurcharges(
   const rawWorkedDay1 = getIntervalOverlapHours(startDate, endDate, startDate, midNight);
   const rawWorkedDay2 = getIntervalOverlapHours(startDate, endDate, midNight, endDate);
 
-  const workedHoursDay1 = Number((rawWorkedDay1 * breakRatio).toFixed(2));
-  const workedHoursDay2 = Number((rawWorkedDay2 * breakRatio).toFixed(2));
+  let workedHoursDay1 = 0;
+  let workedHoursDay2 = 0;
+
+  // Calculate exact break times if logs are available and have start/end
+  let hasExactLogs = false;
+  let exactBreakDay1Ms = 0;
+  let exactBreakDay2Ms = 0;
+
+  if (breakLogs && breakLogs.length > 0) {
+    let allLogsHaveTimes = true;
+    for (const log of breakLogs) {
+      if (log.start && log.end) {
+        const bStart = new Date(log.start);
+        const bEnd = new Date(log.end);
+        if (!isNaN(bStart.getTime()) && !isNaN(bEnd.getTime())) {
+          exactBreakDay1Ms += getIntervalOverlapHours(bStart, bEnd, startDate, midNight) * (1000 * 60 * 60);
+          exactBreakDay2Ms += getIntervalOverlapHours(bStart, bEnd, midNight, endDate) * (1000 * 60 * 60);
+        } else {
+          allLogsHaveTimes = false;
+        }
+      } else {
+        allLogsHaveTimes = false;
+      }
+    }
+    
+    // If all logs have exact times, we can use exact deduction, otherwise fallback to proportional.
+    // Also, if auto break deduction added more break than the logs sum, we fallback to proportional for simplicity or distribute the remainder.
+    const loggedBreakMs = exactBreakDay1Ms + exactBreakDay2Ms;
+    const totalBreakMs = breakHours * (1000 * 60 * 60);
+    
+    // If the logged break covers the entire break (within a margin of error) and all have exact times
+    if (allLogsHaveTimes && loggedBreakMs >= totalBreakMs - 60000) {
+      hasExactLogs = true;
+      const bDay1 = exactBreakDay1Ms / (1000 * 60 * 60);
+      const bDay2 = exactBreakDay2Ms / (1000 * 60 * 60);
+      workedHoursDay1 = Number((rawWorkedDay1 - bDay1).toFixed(2));
+      workedHoursDay2 = Number((rawWorkedDay2 - bDay2).toFixed(2));
+    }
+  }
+
+  if (!hasExactLogs) {
+    workedHoursDay1 = Number((rawWorkedDay1 * breakRatio).toFixed(2));
+    workedHoursDay2 = Number((rawWorkedDay2 * breakRatio).toFixed(2));
+  }
 
   // 1. NIGHT HOURS CALCULATION
   const nightAStart = parseTimeToDate(day1Str, "00:00:00");
@@ -158,12 +214,12 @@ export function calculateSurcharges(
   let rawHolidayDay1 = 0;
   let rawHolidayDay2 = 0;
   
-  if (isGermanHoliday(startDate).isHoliday) {
+  if (isGermanHoliday(startDate, companyState, companyHolidays).isHoliday) {
     const holStart = parseTimeToDate(day1Str, "00:00:00");
     const holEnd = parseTimeToDate(day2Str, "00:00:00");
     rawHolidayDay1 += getIntervalOverlapHours(startDate, midNight, holStart, holEnd);
   }
-  if (isGermanHoliday(endDate).isHoliday) {
+  if (isGermanHoliday(endDate, companyState, companyHolidays).isHoliday) {
     const holStart = parseTimeToDate(day2Str, "00:00:00");
     const holEnd = parseTimeToDate(day3Str, "00:00:00");
     rawHolidayDay2 += getIntervalOverlapHours(midNight, endDate, holStart, holEnd);

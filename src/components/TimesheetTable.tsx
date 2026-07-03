@@ -41,6 +41,7 @@ interface TimesheetSettings {
   target_hours_saturday: number;
   target_hours_sunday: number;
   vacation_days_entitlement: number;
+  carry_over_vacation_days?: number;
   carry_over_hours: number;
 }
 
@@ -80,6 +81,8 @@ interface TimesheetTableProps {
   absenceCodes?: AbsenceCode[] | null;
   startDate?: string | null;
   payouts?: OvertimePayout[];
+  companyHolidays?: any[] | null;
+  companyState?: string;
 }
 
 export default function TimesheetTable({
@@ -90,7 +93,9 @@ export default function TimesheetTable({
   isAdmin = false,
   absenceCodes = null,
   startDate,
-  payouts = []
+  payouts = [],
+  companyHolidays,
+  companyState
 }: TimesheetTableProps) {
   const router = useRouter();
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -134,6 +139,7 @@ export default function TimesheetTable({
     target_hours_saturday: 0,
     target_hours_sunday: 0,
     vacation_days_entitlement: 30,
+    carry_over_vacation_days: 0,
     carry_over_hours: 0
   };
 
@@ -187,7 +193,7 @@ export default function TimesheetTable({
     }
 
     // If it's a holiday, target hours are 0 (non-working day)
-    if (isGermanHoliday(date).isHoliday) {
+    if (isGermanHoliday(date, companyState, companyHolidays || undefined).isHoliday) {
       return 0;
     }
     
@@ -212,10 +218,98 @@ export default function TimesheetTable({
   // Calculations for summary card
   let totalTargetHours = 0;
   let totalWorkedHours = 0;
-  let totalOvertime = 0;
+  
+  // --- Historical Overtime Calculation ---
+  // Build a map of active entries by date for fast lookup
+  const activeEntriesByDate = new Map<string, any[]>();
+  entries.forEach(e => {
+    if (!e.deleted_at) {
+      if (!activeEntriesByDate.has(e.entry_date)) {
+        activeEntriesByDate.set(e.entry_date, []);
+      }
+      activeEntriesByDate.get(e.entry_date)!.push(e);
+    }
+  });
+
+  let calcStartDateStr = startDate;
+  if (!calcStartDateStr) {
+    const sortedDates = Array.from(activeEntriesByDate.keys()).sort();
+    calcStartDateStr = sortedDates.length > 0 ? sortedDates[0] : `${currentDate.getFullYear()}-01-01`;
+  }
+
+  const calcStart = new Date(calcStartDateStr);
+  const calcEnd = new Date(year, month, 0); // last day of PREVIOUS month
+  let historicalOvertime = tsSet.carry_over_hours || 0;
+
+  // Subtract past payouts
+  const pastPayouts = payouts.filter(p => p.year < year || (p.year === year && p.month < month + 1));
+  const pastPayoutsTotal = pastPayouts.reduce((sum, p) => sum + p.hours, 0);
+  historicalOvertime -= pastPayoutsTotal;
+
+  if (calcStart <= calcEnd) {
+    for (let d = new Date(calcStart); d <= calcEnd; d.setDate(d.getDate() + 1)) {
+      const dateStr = formatLocalDate(d);
+      let dayTarget = getTargetHoursForDate(d);
+      let dayWorked = 0;
+      
+      const dayEntries = activeEntriesByDate.get(dateStr) || [];
+      
+      const prevD = new Date(d);
+      prevD.setDate(prevD.getDate() - 1);
+      const prevDateStr = formatLocalDate(prevD);
+      const prevEntries = activeEntriesByDate.get(prevDateStr) || [];
+      const spilloverEntries = prevEntries.filter(e => e.end_time && e.end_time < e.start_time);
+      
+      if (spilloverEntries.length > 0) {
+        spilloverEntries.forEach(entry => {
+          const surch = calculateSurcharges(entry.entry_date, entry.start_time, entry.end_time, entry.break_minutes || 0, surchSet, undefined, undefined, entry.break_logs);
+          dayWorked += surch.workedHoursDay2;
+        });
+      }
+      
+      if (dayEntries.length > 0) {
+        let codeFactor = 1.0;
+        const codeStr = dayEntries[0].absence_code;
+        if (codeStr && absenceCodes) {
+          const dayCodeObj = absenceCodes.find(c => c.code === codeStr);
+          if (dayCodeObj) codeFactor = dayCodeObj.factor;
+        }
+        dayTarget = dayTarget * codeFactor;
+        
+        dayEntries.forEach(entry => {
+          if (!entry.absence_code && entry.end_time) {
+            const surch = calculateSurcharges(entry.entry_date, entry.start_time, entry.end_time, entry.break_minutes || 0, surchSet, undefined, undefined, entry.break_logs);
+            dayWorked += surch.workedHoursDay1;
+          }
+        });
+      }
+      
+      historicalOvertime += (dayWorked - dayTarget);
+    }
+  }
+
+  let totalOvertime = historicalOvertime;
+  // --- End Historical Overtime Calculation ---
+
   const totalSurchargesHours = { night: 0, sunday: 0, holiday: 0 };
   let totalVacationDays = 0;
   let totalSickDays = 0;
+
+  // Track all used abbreviations in the selected month
+  const abbreviationCounts: Record<string, { name: string; code: string; count: number; factor: number }> = {};
+  let attendanceDays = 0;
+
+  // Calculate remaining vacation days up to the end of the currently displayed month
+  const currentYearStr = year.toString();
+  const takenVacationDaysUpToMonthEnd = entries.filter(e => {
+    if (e.deleted_at || e.absence_code !== 'U') return false;
+    if (!e.entry_date.startsWith(currentYearStr)) return false;
+    const entryMonth = parseInt(e.entry_date.split('-')[1], 10) - 1;
+    return entryMonth <= month;
+  }).length;
+  
+  const totalVacationEntitlement = (tsSet.vacation_days_entitlement || 0) + (tsSet.carry_over_vacation_days || 0);
+  const remainingVacationDays = totalVacationEntitlement - takenVacationDaysUpToMonthEnd;
 
   // Process all days to populate the calculations
   const rows = days.map(day => {
@@ -247,7 +341,9 @@ export default function TimesheetTable({
     let endTime = '';
     let totalBreak = 0;
     
-    const holidayCheck = isGermanHoliday(day);
+    const holidayCheck = isGermanHoliday(day, companyState, companyHolidays || undefined);
+    const isHoliday = holidayCheck.isHoliday;
+    const isWeekend = day.getDay() === 0 || day.getDay() === 6;
     const dayEntriesList: any[] = [];
 
     if (spilloverEntries.length > 0) {
@@ -257,7 +353,10 @@ export default function TimesheetTable({
           entry.start_time,
           entry.end_time,
           entry.break_minutes || 0,
-          surchSet
+          surchSet,
+          undefined,
+          undefined,
+          entry.break_logs
         );
         actualHours += surch.workedHoursDay2;
         nightH += surch.nightHoursDay2;
@@ -293,6 +392,11 @@ export default function TimesheetTable({
           dayHasAbsenceCode = true;
           if (codeStr === 'U') totalVacationDays++;
           if (codeStr === 'K') totalSickDays++;
+
+          if (!abbreviationCounts[codeStr]) {
+            abbreviationCounts[codeStr] = { name: dayCodeObj.name, code: dayCodeObj.code, count: 0, factor: dayCodeObj.factor };
+          }
+          abbreviationCounts[codeStr].count++;
         }
       }
 
@@ -309,7 +413,10 @@ export default function TimesheetTable({
             entry.start_time,
             entry.end_time,
             entry.break_minutes || 0,
-            surchSet
+            surchSet,
+            undefined,
+            undefined,
+            entry.break_logs
           );
           actualHours += surch.workedHoursDay1;
           nightH += surch.nightHoursDay1;
@@ -409,6 +516,10 @@ export default function TimesheetTable({
     totalSurchargesHours.night += nightH;
     totalSurchargesHours.sunday += sundayH;
     totalSurchargesHours.holiday += holidayH;
+
+    if (actualHours > 0) {
+      attendanceDays++;
+    }
 
     return {
       day,
@@ -985,11 +1096,39 @@ export default function TimesheetTable({
 
         </div>
 
-        {/* Absences Quick Summary */}
-        {(totalVacationDays > 0 || totalSickDays > 0) && (
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', fontSize: '0.85rem', color: 'var(--text-secondary)', justifyContent: 'flex-end' }}>
-            {totalVacationDays > 0 && <span>🏖️ Urlaubstage diesen Monat: <strong>{totalVacationDays}</strong></span>}
-            {totalSickDays > 0 && <span>🤒 Krankheitstage diesen Monat: <strong>{totalSickDays}</strong></span>}
+        {/* Abbreviations & Attendance Summary */}
+        {(Object.keys(abbreviationCounts).length > 0 || attendanceDays > 0) && (
+          <div style={{ marginTop: '1.5rem' }}>
+            <h4 style={{ marginBottom: '0.75rem', fontSize: '1rem', color: 'var(--text-secondary)', paddingLeft: '0.5rem' }}>
+              Übersicht der Kürzel
+            </h4>
+            <div className="grid-cols-4" style={{ gap: '1rem' }}>
+              {Object.values(abbreviationCounts).map(abbr => (
+                <div key={abbr.code} className="glass" style={{ padding: '1rem', borderRadius: 'var(--border-radius-sm)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>
+                    {abbr.name} ({abbr.code})
+                  </div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>
+                    {abbr.count.toFixed(1).replace('.', ',')}
+                  </div>
+                  {abbr.code === 'U' && (
+                    <div style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', marginTop: '0.25rem' }}>
+                      Verfügbar: {remainingVacationDays} Tag(e)
+                    </div>
+                  )}
+                </div>
+              ))}
+              {attendanceDays > 0 && (
+                <div className="glass" style={{ padding: '1rem', borderRadius: 'var(--border-radius-sm)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>
+                    Anwesenheit
+                  </div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>
+                    {attendanceDays}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

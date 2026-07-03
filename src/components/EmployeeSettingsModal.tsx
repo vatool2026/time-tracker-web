@@ -51,6 +51,7 @@ export default function EmployeeSettingsModal({
   const [carryOverHours, setCarryOverHours] = useState<number>(settings?.carry_over_hours || 0);
   const [vacationEntitlement, setVacationEntitlement] = useState<number>(settings?.vacation_days_entitlement || 30);
   const [carryOverVacation, setCarryOverVacation] = useState<number>(settings?.carry_over_vacation_days || 0);
+  const [carryOverYear, setCarryOverYear] = useState<number>(new Date().getFullYear() - 1);
 
   // Daily target hours
   const [mon, setMon] = useState<number>(settings?.target_hours_monday ?? 8);
@@ -89,7 +90,8 @@ export default function EmployeeSettingsModal({
       targets,
       employeeNumber || null,
       isMinor,
-      startDate || null
+      startDate || null,
+      Number(carryOverYear)
     );
 
     setLoading(false);
@@ -254,7 +256,20 @@ export default function EmployeeSettingsModal({
           </div>
 
           {/* Section: Hours & Vacation balances */}
-          <div className="grid-cols-3" style={{ gap: '1rem' }}>
+          <div className="grid-cols-2 md:grid-cols-4" style={{ gap: '1rem' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>
+                Übertragsjahr
+              </label>
+              <input
+                type="number"
+                value={carryOverYear}
+                onChange={(e) => setCarryOverYear(Number(e.target.value))}
+                className="input-field"
+                min="2010"
+                max="2100"
+              />
+            </div>
             <div>
               <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>
                 Überstunden Übertrag (Std.)

@@ -12,6 +12,7 @@ interface TimeEntry {
   end_time: string | null;
   break_minutes: number;
   absence_code: string | null;
+  deleted_at?: string | null;
 }
 
 interface TimesheetSettings {
@@ -46,6 +47,8 @@ interface YearlyOverviewTableProps {
   absenceCodes: AbsenceCode[];
   startDate?: string | null;
   payouts?: { id: string; user_id: string; year: number; month: number; hours: number; note: string | null; created_at: string; }[];
+  companyState?: string;
+  companyHolidays?: any[];
 }
 
 const MONTHS = [
@@ -74,7 +77,9 @@ export default function YearlyOverviewTable({
   surchargeSettings,
   absenceCodes,
   startDate,
-  payouts = []
+  payouts = [],
+  companyState,
+  companyHolidays
 }: YearlyOverviewTableProps) {
   const [year, setYear] = useState(new Date().getFullYear());
   const [mobileMonthIdx, setMobileMonthIdx] = useState(new Date().getMonth());
@@ -107,8 +112,8 @@ export default function YearlyOverviewTable({
         }
 
         const dateStr = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
-        const dayEntries = entries.filter(e => e.entry_date === dateStr);
-        const isHoliday = isGermanHoliday(date);
+        const dayEntries = entries.filter(e => e.entry_date === dateStr && !e.deleted_at);
+        const isHoliday = isGermanHoliday(date, companyState, companyHolidays);
         
         // Calculate target hours
         let baseTargetHours = 0;

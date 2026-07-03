@@ -13,12 +13,16 @@ interface Props {
   employees: any[];
   allCompanyEntries: any[];
   allCategorySettings: any[];
+  companyState?: string;
+  companyHolidays?: any[];
 }
 
 export default function ComplianceAdminTab({
   employees,
   allCompanyEntries,
-  allCategorySettings
+  allCategorySettings,
+  companyState,
+  companyHolidays
 }: Props) {
   const [showSettings, setShowSettings] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -61,8 +65,8 @@ export default function ComplianceAdminTab({
 
   // Calculate violations using the imported utility
   const violationsByEmployee = useMemo(() => {
-    return calculateComplianceViolations(employees, allCompanyEntries, allCategorySettings);
-  }, [employees, allCompanyEntries, allCategorySettings]);
+    return calculateComplianceViolations(employees, allCompanyEntries, allCategorySettings, companyState, companyHolidays);
+  }, [employees, allCompanyEntries, allCategorySettings, companyState, companyHolidays]);
 
   return (
     <div>

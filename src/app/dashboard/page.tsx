@@ -148,6 +148,15 @@ export default async function DashboardPage() {
     qrCodes = qrs;
   }
 
+  let companyHolidays: any[] | null = null;
+  if (profile.company_id) {
+    const { data: hols } = await supabase
+      .from('company_custom_holidays')
+      .select('*')
+      .eq('company_id', profile.company_id);
+    companyHolidays = hols;
+  }
+
   return (
     <main className="container" style={{ padding: '0 1.5rem', minHeight: '100vh' }}>
       <DashboardContainer
@@ -163,6 +172,7 @@ export default async function DashboardPage() {
         allCompanyPayouts={allCompanyPayouts}
         absenceCodes={absenceCodes}
         qrCodes={qrCodes}
+        companyHolidays={companyHolidays}
       />
     </main>
   );

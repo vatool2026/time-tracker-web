@@ -14,14 +14,17 @@ import TravelAllowanceCalculator from './TravelAllowanceCalculator';
 import ThemeToggle from './ThemeToggle';
 import LogoUpload from './LogoUpload';
 import SecuritySettings from './SecuritySettings';
+import CustomHolidaysAdminTab from './CustomHolidaysAdminTab';
 import { isGermanHoliday } from '@/utils/holidays';
 import { calculateSurcharges } from '@/utils/surchargeCalculator';
 import AdminOverview from './AdminOverview';
 import ImportTimeEntries from './ImportTimeEntries';
 import CarryoverAdminTab from './CarryoverAdminTab';
 import ComplianceAdminTab from './ComplianceAdminTab';
+import ComplianceEmployeeTab from './ComplianceEmployeeTab';
 import QRCodeAdminTab from './QRCodeAdminTab';
 import AdminOvertimeTab from './AdminOvertimeTab';
+import VacationAdminTab from './VacationAdminTab';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { 
@@ -73,6 +76,7 @@ interface SurchargeSettings {
   compliance_rest_period_hours?: number;
   compliance_break_enabled?: boolean;
   compliance_sunday_holiday_enabled?: boolean;
+  auto_break_deduction_enabled?: boolean;
 }
 
 export interface AbsenceCode {
@@ -82,6 +86,13 @@ export interface AbsenceCode {
   name: string;
   code: string;
   factor: number;
+}
+
+export interface CompanyHoliday {
+  id: string;
+  company_id: string;
+  date: string;
+  name: string;
 }
 
 interface OvertimePayout {
@@ -116,6 +127,7 @@ interface Profile {
     feature_abwesenheit?: boolean;
     feature_sonstiges?: boolean;
     feature_qr_tracking?: boolean;
+    state?: string;
   } | null;
 }
 
@@ -132,6 +144,7 @@ interface DashboardContainerProps {
   allCompanyPayouts?: OvertimePayout[] | null;
   absenceCodes: AbsenceCode[] | null;
   qrCodes?: any[] | null;
+  companyHolidays: CompanyHoliday[] | null;
 }
 
 export default function DashboardContainer({
@@ -146,12 +159,13 @@ export default function DashboardContainer({
   allCompanyEntries,
   allCompanyPayouts = [],
   absenceCodes,
-  qrCodes
+  qrCodes,
+  companyHolidays
 }: DashboardContainerProps) {
   const isAdmin = profile.role === 'COMPANY_ADMIN' || profile.role === 'ROOT';
   const [activeTab, setActiveTab] = useState<'employee' | 'admin'>(isAdmin ? 'admin' : 'employee');
-  const [adminSubTab, setAdminSubTab] = useState<'overview' | 'employees' | 'surcharges' | 'absences' | 'company' | 'carryover' | 'overtime' | 'import' | 'reports' | 'compliance' | 'settings' | 'qrcodes'>('overview');
-  const [employeeSubTab, setEmployeeSubTab] = useState<'zeiterfassung' | 'stundenzettel' | 'urlaub' | 'statistik' | 'sonstiges' | 'einstellungen'>('zeiterfassung');
+  const [adminSubTab, setAdminSubTab] = useState<'overview' | 'employees' | 'surcharges' | 'absences' | 'company' | 'carryover' | 'overtime' | 'import' | 'reports' | 'compliance' | 'settings' | 'qrcodes' | 'vacation' | 'holidays'>('overview');
+  const [employeeSubTab, setEmployeeSubTab] = useState<'zeiterfassung' | 'stundenzettel' | 'urlaub' | 'statistik' | 'sonstiges' | 'einstellungen' | 'verstösse'>('zeiterfassung');
   const [adminEmployeeSubView, setAdminEmployeeSubView] = useState<'list' | 'import' | 'carryover'>('list');
   const [settingsTab, setSettingsTab] = useState<'general' | 'security'>('general');
   // Modals
@@ -176,6 +190,7 @@ export default function DashboardContainer({
   const [companyName, setCompanyName] = useState<string>(profile.companies?.name || '');
   const [billingPeriodType, setBillingPeriodType] = useState<string>(profile.companies?.billing_period_type || 'CALENDAR_MONTH');
   const [billingStartDay, setBillingStartDay] = useState<number>(profile.companies?.billing_period_start_day || 1);
+  const [companyState, setCompanyState] = useState<string>(profile.companies?.state || '');
   
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -243,6 +258,7 @@ export default function DashboardContainer({
     const nightRate = Number(formData.get('nightRate'));
     const sundayRate = Number(formData.get('sundayRate'));
     const holidayRate = Number(formData.get('holidayRate'));
+    const autoBreakDeduction = formData.get('autoBreakDeduction') === 'on';
 
     const res = await updateSurchargeSettingsAction(
       cat,
@@ -250,7 +266,8 @@ export default function DashboardContainer({
       nightEnd + ":00",
       nightRate,
       sundayRate,
-      holidayRate
+      holidayRate,
+      autoBreakDeduction
     );
 
     if (res.success) {
@@ -264,7 +281,7 @@ export default function DashboardContainer({
   const handleCompanyUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const res = await updateCompanySettingsAction(companyName, billingPeriodType, Number(billingStartDay));
+    const res = await updateCompanySettingsAction(companyName, billingPeriodType, Number(billingStartDay), companyState);
     setLoading(false);
 
     if (res.success) {
@@ -350,7 +367,7 @@ export default function DashboardContainer({
         let target = 8;
         if (emp.start_date && day < new Date(emp.start_date)) {
           target = 0;
-        } else if (!isGermanHoliday(day).isHoliday) {
+        } else if (!isGermanHoliday(day, profile.companies?.state, companyHolidays || undefined).isHoliday) {
           const wday = day.getDay();
           if (wday === 1) target = empSettings.target_hours_monday;
           else if (wday === 2) target = empSettings.target_hours_tuesday;
@@ -377,7 +394,10 @@ export default function DashboardContainer({
               entry.start_time,
               entry.end_time,
               entry.break_minutes || 0,
-              empSurchSettings
+              empSurchSettings,
+              undefined,
+              undefined,
+              entry.break_logs
             );
             workedHoursTotal += surch.workedHours;
             nightHoursTotal += surch.nightHours;
@@ -535,7 +555,10 @@ export default function DashboardContainer({
           entry.start_time,
           entry.end_time,
           entry.break_minutes || 0,
-          empSurchSettings || { night_surcharge_start_time: '22:00:00', night_surcharge_end_time: '06:00:00', night_surcharge_rate: 25, sunday_surcharge_rate: 50, holiday_surcharge_rate: 100 }
+          empSurchSettings || { night_surcharge_start_time: '22:00:00', night_surcharge_end_time: '06:00:00', night_surcharge_rate: 25, sunday_surcharge_rate: 50, holiday_surcharge_rate: 100 },
+          undefined,
+          undefined,
+          entry.break_logs
         );
         worked = surch.workedHours;
         totalWorked += worked;
@@ -722,6 +745,7 @@ export default function DashboardContainer({
                 { id: 'stundenzettel', label: 'Stundenzettel', icon: <Table size={16} /> },
                 profile.companies?.feature_urlaub ? { id: 'urlaub', label: 'Urlaub', icon: <Calendar size={16} /> } : null,
                 { id: 'statistik', label: 'Statistik', icon: <BarChart size={16} /> },
+                { id: 'verstösse', label: 'Verstöße (ArbZG)', icon: <ShieldAlert size={16} /> },
                 profile.companies?.feature_sonstiges ? { id: 'sonstiges', label: 'Fahrtkosten', icon: <Car size={16} /> } : null
               ].filter(Boolean).map((tab: any) => (
                 <button
@@ -885,6 +909,14 @@ export default function DashboardContainer({
               <TravelAllowanceCalculator entries={entries} />
             )}
 
+            {employeeSubTab === 'verstösse' && (
+              <ComplianceEmployeeTab 
+                profile={profile} 
+                entries={entries} 
+                surchargeSettings={surchargeSettings} 
+              />
+            )}
+
             {employeeSubTab === 'einstellungen' && (
               <div style={{ maxWidth: '600px' }}>
                 <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem', marginBottom: '2rem' }}>
@@ -988,6 +1020,8 @@ export default function DashboardContainer({
               { id: 'absences', label: 'Kürzel', icon: <CalendarDays size={16} /> },
               { id: 'reports', label: 'Monatsberichte & Export', icon: <FileText size={16} /> },
               { id: 'overtime', label: 'Überstunden', icon: <DollarSign size={16} /> },
+              ...(profile.companies?.feature_urlaub ? [{ id: 'vacation', label: 'Urlaub', icon: <Calendar size={16} /> }] : []),
+              { id: 'holidays', label: 'Feiertage', icon: <Calendar size={16} /> },
               ...(profile.companies?.feature_qr_tracking ? [{ id: 'qrcodes', label: 'QR-Codes', icon: <QrCode size={16} /> }] : []),
               { id: 'company', label: 'Firmendetails', icon: <Building size={16} /> }
             ].map(tab => (
@@ -1029,6 +1063,15 @@ export default function DashboardContainer({
             <AdminOvertimeTab
               employees={employees}
               allCompanyPayouts={allCompanyPayouts || []}
+            />
+          )}
+
+          {/* Sub-Tab content: Vacation */}
+          {adminSubTab === 'vacation' && employees && (
+            <VacationAdminTab
+              employees={employees}
+              allCompanyEntries={allCompanyEntries || []}
+              allTimesheetSettings={allTimesheetSettings || []}
             />
           )}
 
@@ -1237,6 +1280,20 @@ export default function DashboardContainer({
                           <input type="number" step="0.5" name="holidayRate" defaultValue={set.holiday_surcharge_rate} className="input-field" required />
                         </div>
 
+                        {/* Auto Break Deduction */}
+                        <div style={{ flex: '1 1 100%', display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
+                          <input 
+                            type="checkbox" 
+                            name="autoBreakDeduction" 
+                            id={`autoBreak_${cat}`}
+                            defaultChecked={set.auto_break_deduction_enabled || false}
+                            style={{ cursor: 'pointer' }}
+                          />
+                          <label htmlFor={`autoBreak_${cat}`} style={{ fontSize: '0.85rem', color: 'var(--text-primary)', cursor: 'pointer' }}>
+                            Automatischen Pausenabzug aktivieren (30 Min ab 6 Std, 45 Min ab 9 Std Arbeitszeit)
+                          </label>
+                        </div>
+
                         <button type="submit" className="btn btn-primary" style={{ padding: '0.65rem 1.25rem', height: '40px', fontSize: '0.85rem' }}>
                           Regel Speichern
                         </button>
@@ -1255,7 +1312,7 @@ export default function DashboardContainer({
                 <div>
                   <h3 style={{ fontSize: '1.25rem', margin: 0 }}>Anwesenheits-/Fehlgründe (Kürzel) konfigurieren</h3>
                   <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.25rem' }}>
-                    Definieren Sie hier Kürzel für Fehlzeiten (z. B. Urlaub, Krankheit) und deren Faktor für die Soll-Arbeitszeit. 
+                    Definieren Sie hier Kürzel für Fehlzeiten (z. B. Urlaub, Krankheit) und deren Faktor für die Soll-Arbeitszeit (0.0 = Sollzeit entfällt komplett).
                   </p>
                 </div>
                 <button onClick={() => setEditingAbsenceCode({ id: '', company_id: '', employment_category: 'FULLTIME', name: '', code: '', factor: 1.0 })} className="btn btn-primary">
@@ -1347,6 +1404,29 @@ export default function DashboardContainer({
                   <input type="number" min="1" max="28" value={billingStartDay} onChange={(e) => setBillingStartDay(Number(e.target.value))} className="input-field" required disabled={loading} />
                 </div>
 
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>Bundesland für Feiertage</label>
+                  <select value={companyState} onChange={(e) => setCompanyState(e.target.value)} className="input-field" disabled={loading}>
+                    <option value="">Kein spezifisches Bundesland (nur bundesweite Feiertage)</option>
+                    <option value="BW">Baden-Württemberg</option>
+                    <option value="BY">Bayern</option>
+                    <option value="BE">Berlin</option>
+                    <option value="BB">Brandenburg</option>
+                    <option value="HB">Bremen</option>
+                    <option value="HH">Hamburg</option>
+                    <option value="HE">Hessen</option>
+                    <option value="MV">Mecklenburg-Vorpommern</option>
+                    <option value="NI">Niedersachsen</option>
+                    <option value="NW">Nordrhein-Westfalen</option>
+                    <option value="RP">Rheinland-Pfalz</option>
+                    <option value="SL">Saarland</option>
+                    <option value="SN">Sachsen</option>
+                    <option value="ST">Sachsen-Anhalt</option>
+                    <option value="SH">Schleswig-Holstein</option>
+                    <option value="TH">Thüringen</option>
+                  </select>
+                </div>
+
                 <button type="submit" className="btn btn-primary" style={{ width: '100%', height: '46px', marginTop: '0.5rem' }} disabled={loading}>
                   {loading ? 'Wird gespeichert...' : 'Firmendaten Aktualisieren'}
                 </button>
@@ -1355,6 +1435,16 @@ export default function DashboardContainer({
               {profile.companies?.id && (
                 <LogoUpload currentLogoUrl={profile.companies.logo_url || null} companyId={profile.companies.id} />
               )}
+            </div>
+          )}
+
+          {/* Sub-Tab content: Custom Holidays */}
+          {adminSubTab === 'holidays' && profile.company_id && (
+            <div style={{ maxWidth: '600px' }}>
+              <CustomHolidaysAdminTab 
+                companyId={profile.company_id} 
+                initialHolidays={companyHolidays || []} 
+              />
             </div>
           )}
 
@@ -1541,7 +1631,16 @@ export default function DashboardContainer({
                           const empSurchSettings = allCategorySettings?.find(s => s.category === employees?.find(e => e.id === reportEmployeeId)?.employment_category);
                           let worked = 0;
                           if (entry.end_time) {
-                            const surch = calculateSurcharges(entry.entry_date, entry.start_time, entry.end_time, entry.break_minutes || 0, empSurchSettings || { night_surcharge_start_time: '22:00:00', night_surcharge_end_time: '06:00:00', night_surcharge_rate: 25, sunday_surcharge_rate: 50, holiday_surcharge_rate: 100 });
+                            const surch = calculateSurcharges(
+                              entry.entry_date, 
+                              entry.start_time, 
+                              entry.end_time, 
+                              entry.break_minutes || 0, 
+                              empSurchSettings || { night_surcharge_start_time: '22:00:00', night_surcharge_end_time: '06:00:00', night_surcharge_rate: 25, sunday_surcharge_rate: 50, holiday_surcharge_rate: 100 },
+                              undefined,
+                              undefined,
+                              entry.break_logs
+                            );
                             worked = surch.workedHours;
                           }
                           
@@ -1587,6 +1686,8 @@ export default function DashboardContainer({
                 employees={employees || []}
                 allCompanyEntries={allCompanyEntries || []}
                 allCategorySettings={allCategorySettings || []}
+                companyState={profile.companies?.state}
+                companyHolidays={companyHolidays || undefined}
               />
             </div>
           )}
@@ -1786,6 +1887,7 @@ export default function DashboardContainer({
               { id: 'absences', label: 'Kürzel', icon: <CalendarDays size={20} /> },
               { id: 'reports', label: 'Berichte', icon: <FileText size={20} /> },
               { id: 'overtime', label: 'Überst.', icon: <DollarSign size={20} /> },
+              { id: 'holidays', label: 'Feiertage', icon: <Calendar size={20} /> },
               ...(profile.companies?.feature_qr_tracking ? [{ id: 'qrcodes', label: 'QR-Codes', icon: <QrCode size={20} /> }] : []),
               { id: 'company', label: 'Firma', icon: <Building size={20} /> },
               { id: 'settings', label: 'Einstellungen', icon: <Settings size={20} /> }

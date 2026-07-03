@@ -352,7 +352,7 @@ export async function clockOutAction(note: string = '', offlineTimestamp?: strin
 /**
  * Increments pause duration for the active time entry.
  */
-export async function recordBreakAction(minutes: number): Promise<ActionResponse> {
+export async function recordBreakAction(minutes: number, startIso?: string, endIso?: string): Promise<ActionResponse> {
   const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -361,7 +361,7 @@ export async function recordBreakAction(minutes: number): Promise<ActionResponse
   // Find active entry
   const { data: activeEntries, error: findError } = await supabase
     .from('time_entries')
-    .select('id, break_minutes')
+    .select('id, break_minutes, break_logs')
     .eq('user_id', user.id)
     .is('end_time', null)
     .order('entry_date', { ascending: false });
@@ -374,11 +374,19 @@ export async function recordBreakAction(minutes: number): Promise<ActionResponse
 
   const active = activeEntries[0];
   const newBreak = (active.break_minutes || 0) + minutes;
+  
+  let newLogs = active.break_logs ? (Array.isArray(active.break_logs) ? [...active.break_logs] : []) : [];
+  if (startIso && endIso) {
+    newLogs.push({ start: startIso, end: endIso, minutes });
+  } else {
+    newLogs.push({ minutes });
+  }
 
   const { error } = await supabase
     .from('time_entries')
     .update({
       break_minutes: newBreak,
+      break_logs: newLogs
     })
     .eq('id', active.id);
 
@@ -561,7 +569,8 @@ export async function updateEmployeeSettingsAction(
   },
   employeeNumber?: string | null,
   isMinor?: boolean,
-  startDate?: string | null
+  startDate?: string | null,
+  carryOverYear?: number
 ): Promise<ActionResponse> {
   const supabase = await createClient();
 
@@ -594,14 +603,14 @@ export async function updateEmployeeSettingsAction(
 
   if (profileError) return { success: false, message: `Fehler beim Aktualisieren des Mitarbeiterprofils: ${profileError.message}` };
 
-  // Update or insert timesheet settings for the current year
-  const currentYear = new Date().getFullYear();
+  // Update or insert timesheet settings
+  const targetYear = carryOverYear || new Date().getFullYear();
   
   const { data: existingSettings } = await supabase
     .from('timesheet_settings')
     .select('id')
     .eq('user_id', employeeId)
-    .eq('year', currentYear);
+    .eq('year', targetYear);
 
   const payload = {
     carry_over_hours: carryOverHours,
@@ -621,7 +630,7 @@ export async function updateEmployeeSettingsAction(
       .from('timesheet_settings')
       .update(payload)
       .eq('user_id', employeeId)
-      .eq('year', currentYear);
+      .eq('year', targetYear);
 
     if (tsError) return { success: false, message: `Fehler beim Aktualisieren der Arbeitszeit-Einstellungen: ${tsError.message}` };
   } else {
@@ -629,7 +638,7 @@ export async function updateEmployeeSettingsAction(
       .from('timesheet_settings')
       .insert({
         user_id: employeeId,
-        year: currentYear,
+        year: targetYear,
         ...payload,
       });
 
@@ -649,7 +658,8 @@ export async function updateSurchargeSettingsAction(
   nightEnd: string,
   nightRate: number,
   sundayRate: number,
-  holidayRate: number
+  holidayRate: number,
+  autoBreakDeduction: boolean
 ): Promise<ActionResponse> {
   const supabase = await createClient();
 
@@ -676,6 +686,7 @@ export async function updateSurchargeSettingsAction(
       night_surcharge_rate: nightRate,
       sunday_surcharge_rate: sundayRate,
       holiday_surcharge_rate: holidayRate,
+      auto_break_deduction_enabled: autoBreakDeduction,
     })
     .eq('company_id', callerProfile.company_id)
     .eq('category', category);
@@ -738,7 +749,8 @@ export async function updateComplianceSettingsAction(
 export async function updateCompanySettingsAction(
   name: string,
   billingPeriodType: string,
-  billingPeriodStartDay: number
+  billingPeriodStartDay: number,
+  state: string | null = null
 ): Promise<ActionResponse> {
   const supabase = await createClient();
 
@@ -762,6 +774,7 @@ export async function updateCompanySettingsAction(
       name,
       billing_period_type: billingPeriodType,
       billing_period_start_day: billingPeriodStartDay,
+      state: state || null,
     })
     .eq('id', callerProfile.company_id);
 
@@ -1218,7 +1231,8 @@ export async function importExcelTimeEntriesAction(userId: string, entries: Exce
 export async function updateCarryOverAction(
   employeeId: string,
   carryOverHours: number,
-  carryOverVacationDays: number
+  carryOverVacationDays: number,
+  year: number
 ): Promise<ActionResponse> {
   const supabase = await createClient();
 
@@ -1235,13 +1249,11 @@ export async function updateCarryOverAction(
     return { success: false, message: 'Keine Administratorrechte.' };
   }
 
-  const currentYear = new Date().getFullYear();
-  
   const { data: existingSettings } = await supabase
     .from('timesheet_settings')
     .select('id')
     .eq('user_id', employeeId)
-    .eq('year', currentYear)
+    .eq('year', year)
     .single();
 
   if (existingSettings) {
@@ -1260,7 +1272,7 @@ export async function updateCarryOverAction(
       .from('timesheet_settings')
       .insert({
         user_id: employeeId,
-        year: currentYear,
+        year: year,
         carry_over_hours: carryOverHours,
         carry_over_vacation_days: carryOverVacationDays,
         target_hours_monday: 8,
@@ -1421,4 +1433,107 @@ export async function deleteCompanyUserAction(userIdToDelete: string): Promise<A
 
   revalidatePath('/dashboard');
   return { success: true, message: 'Benutzer erfolgreich gelöscht.' };
+}
+
+export async function getTimesheetSettingsForYearAction(year: number) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, data: null };
+
+  const { data: callerProfile } = await supabase
+    .from('profiles')
+    .select('role, company_id')
+    .eq('id', user.id)
+    .single();
+
+  if (!callerProfile || (callerProfile.role !== 'COMPANY_ADMIN' && callerProfile.role !== 'ROOT')) {
+    return { success: false, data: null };
+  }
+
+  const { data: emps } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('company_id', callerProfile.company_id)
+    .eq('role', 'EMPLOYEE');
+
+  if (!emps || emps.length === 0) return { success: true, data: [] };
+
+  const employeeIds = emps.map(e => e.id);
+
+  const { data: tsSets } = await supabase
+    .from('timesheet_settings')
+    .select('*')
+    .eq('year', year)
+    .in('user_id', employeeIds);
+
+  return { success: true, data: tsSets };
+}
+
+export async function getEmployeeTimesheetSettingsAction(employeeId: string, year: number) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, data: null };
+
+  const { data: callerProfile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (!callerProfile || (callerProfile.role !== 'COMPANY_ADMIN' && callerProfile.role !== 'ROOT')) {
+    return { success: false, data: null };
+  }
+
+  const { data: tsSet } = await supabase
+    .from('timesheet_settings')
+    .select('*')
+    .eq('user_id', employeeId)
+    .eq('year', year)
+    .maybeSingle();
+
+  return { success: true, data: tsSet || null };
+}
+
+export async function updateCompanyHolidaysAction(holidays: { name: string; date: string }[]) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, message: 'Nicht authentifiziert.' };
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('company_id, role')
+    .eq('id', user.id)
+    .single();
+
+  if (!profile || !profile.company_id || (profile.role !== 'COMPANY_ADMIN' && profile.role !== 'ROOT')) {
+    return { success: false, message: 'Keine Berechtigung.' };
+  }
+
+  // Delete all existing and insert new
+  const { error: deleteError } = await supabase
+    .from('company_custom_holidays')
+    .delete()
+    .eq('company_id', profile.company_id);
+
+  if (deleteError) {
+    return { success: false, message: `Fehler beim Löschen alter Feiertage: ${deleteError.message}` };
+  }
+
+  if (holidays.length > 0) {
+    const payload = holidays.map(h => ({
+      company_id: profile.company_id,
+      name: h.name,
+      date: h.date,
+    }));
+
+    const { error: insertError } = await supabase
+      .from('company_custom_holidays')
+      .insert(payload);
+
+    if (insertError) {
+      return { success: false, message: `Fehler beim Speichern neuer Feiertage: ${insertError.message}` };
+    }
+  }
+
+  return { success: true, message: 'Benutzerdefinierte Feiertage wurden gespeichert.' };
 }

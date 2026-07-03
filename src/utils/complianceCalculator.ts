@@ -15,7 +15,9 @@ export interface EmployeeViolationResult {
 export function calculateComplianceViolations(
   employees: any[],
   allCompanyEntries: any[],
-  allCategorySettings: any[]
+  allCategorySettings: any[],
+  companyState?: string,
+  companyHolidays?: any[]
 ): EmployeeViolationResult[] {
   if (!employees || !allCompanyEntries || !allCategorySettings) return [];
 
@@ -118,7 +120,7 @@ export function calculateComplianceViolations(
       // 3. Sunday/Holiday Check
       if (sundayHolidayEnabled && startD) {
         const isSunday = startD.getDay() === 0;
-        const isHoliday = isGermanHoliday(startD).isHoliday;
+        const isHoliday = isGermanHoliday(startD, companyState, companyHolidays).isHoliday;
         
         if (isSunday || isHoliday) {
           violations.push({
