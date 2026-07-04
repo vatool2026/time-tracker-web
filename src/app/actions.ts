@@ -1293,6 +1293,33 @@ export async function updateCarryOverAction(
 }
 
 /**
+ * Updates the authenticated user's profile name
+ */
+export async function updateUserProfileNameAction(firstName: string, lastName: string): Promise<ActionResponse> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, message: 'Nicht authentifiziert.' };
+  }
+
+  if (!firstName || !lastName) {
+    return { success: false, message: 'Vorname und Nachname sind erforderlich.' };
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ first_name: firstName, last_name: lastName })
+    .eq('id', user.id);
+    
+  if (error) {
+    return { success: false, message: formatErrorMessage(error, 'Fehler beim Aktualisieren des Namens') };
+  }
+  
+  revalidatePath('/dashboard');
+  return { success: true, message: 'Name erfolgreich geändert.' };
+}
+
+/**
  * Updates the authenticated user's password
  */
 export async function updateUserPasswordAction(password: string): Promise<ActionResponse> {

@@ -2,10 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { updateUserPasswordAction } from '@/app/actions';
-import { Shield, Key, Lock, CheckCircle, AlertCircle, Smartphone } from 'lucide-react';
+import { updateUserPasswordAction, updateUserProfileNameAction } from '@/app/actions';
+import { Shield, Key, Lock, CheckCircle, AlertCircle, Smartphone, User } from 'lucide-react';
 
 export default function SecuritySettings({ profile }: { profile: any }) {
+  // Profile State
+  const [firstName, setFirstName] = useState(profile?.first_name || '');
+  const [lastName, setLastName] = useState(profile?.last_name || '');
+
   // Password State
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -76,6 +80,22 @@ export default function SecuritySettings({ profile }: { profile: any }) {
       showMsg('success', result.message);
       setNewPassword('');
       setConfirmPassword('');
+    } else {
+      showMsg('error', result.message);
+    }
+  };
+
+  const handleNameChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!firstName.trim() || !lastName.trim()) {
+      showMsg('error', 'Vorname und Nachname dürfen nicht leer sein.');
+      return;
+    }
+    setLoading(true);
+    const result = await updateUserProfileNameAction(firstName, lastName);
+    setLoading(false);
+    if (result.success) {
+      showMsg('success', result.message);
     } else {
       showMsg('error', result.message);
     }
@@ -187,7 +207,7 @@ export default function SecuritySettings({ profile }: { profile: any }) {
     <div className="glass glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '1rem' }}>
         <Shield size={24} style={{ color: 'var(--accent-primary)' }} />
-        <h3 style={{ fontSize: '1.25rem', margin: 0 }}>Sicherheit</h3>
+        <h3 style={{ fontSize: '1.25rem', margin: 0 }}>Profil & Sicherheit</h3>
       </div>
       
       {/* Messages */}
@@ -207,8 +227,41 @@ export default function SecuritySettings({ profile }: { profile: any }) {
         </div>
       )}
 
+      {/* Profile Settings */}
+      <form onSubmit={handleNameChange} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <div>
+          <h4 style={{ fontWeight: 600, marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <User size={16} /> Profil bearbeiten
+          </h4>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>Passen Sie Ihren Namen an.</p>
+        </div>
+        <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', flexWrap: 'wrap', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            <input 
+              type="text" 
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              placeholder="Vorname"
+              className="input-field"
+              style={{ flex: 1, minWidth: '200px' }}
+            />
+            <input 
+              type="text" 
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              placeholder="Nachname"
+              className="input-field"
+              style={{ flex: 1, minWidth: '200px' }}
+            />
+          </div>
+          <button type="submit" disabled={loading || !firstName.trim() || !lastName.trim()} className="btn btn-primary glass" style={{ alignSelf: 'flex-start' }}>
+            Namen speichern
+          </button>
+        </div>
+      </form>
+
       {/* Password Reset */}
-      <form onSubmit={handlePasswordChange} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <form onSubmit={handlePasswordChange} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--glass-border)' }}>
         <div>
           <h4 style={{ fontWeight: 600, marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Key size={16} /> Passwort ändern
