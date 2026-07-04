@@ -369,17 +369,31 @@ export default function DashboardContainer({
         let target = 8;
         if (emp.start_date && day < new Date(emp.start_date)) {
           target = 0;
-        } else if (!isGermanHoliday(day, profile.companies?.state, companyHolidays || undefined).isHoliday) {
-          const wday = day.getDay();
-          if (wday === 1) target = empSettings.target_hours_monday;
-          else if (wday === 2) target = empSettings.target_hours_tuesday;
-          else if (wday === 3) target = empSettings.target_hours_wednesday;
-          else if (wday === 4) target = empSettings.target_hours_thursday;
-          else if (wday === 5) target = empSettings.target_hours_friday;
-          else if (wday === 6) target = empSettings.target_hours_saturday;
-          else if (wday === 0) target = empSettings.target_hours_sunday;
         } else {
-          target = 0;
+          const holidayInfo = isGermanHoliday(day, profile.companies?.state, companyHolidays || undefined);
+          if (!holidayInfo.isHoliday) {
+            const wday = day.getDay();
+            if (wday === 1) target = empSettings.target_hours_monday;
+            else if (wday === 2) target = empSettings.target_hours_tuesday;
+            else if (wday === 3) target = empSettings.target_hours_wednesday;
+            else if (wday === 4) target = empSettings.target_hours_thursday;
+            else if (wday === 5) target = empSettings.target_hours_friday;
+            else if (wday === 6) target = empSettings.target_hours_saturday;
+            else if (wday === 0) target = empSettings.target_hours_sunday;
+          } else if (holidayInfo.isHalfHoliday) {
+            const wday = day.getDay();
+            let regularTarget = 0;
+            if (wday === 1) regularTarget = empSettings.target_hours_monday;
+            else if (wday === 2) regularTarget = empSettings.target_hours_tuesday;
+            else if (wday === 3) regularTarget = empSettings.target_hours_wednesday;
+            else if (wday === 4) regularTarget = empSettings.target_hours_thursday;
+            else if (wday === 5) regularTarget = empSettings.target_hours_friday;
+            else if (wday === 6) regularTarget = empSettings.target_hours_saturday;
+            else if (wday === 0) regularTarget = empSettings.target_hours_sunday;
+            target = regularTarget / 2;
+          } else {
+            target = 0;
+          }
         }
         targetHoursTotal += target;
 
@@ -1445,10 +1459,11 @@ export default function DashboardContainer({
 
           {/* Sub-Tab content: Custom Holidays */}
           {adminSubTab === 'holidays' && profile.company_id && (
-            <div style={{ maxWidth: '600px' }}>
+            <div style={{ width: '100%' }}>
               <CustomHolidaysAdminTab 
                 companyId={profile.company_id} 
                 initialHolidays={companyHolidays || []} 
+                companyState={profile.companies?.state}
               />
             </div>
           )}

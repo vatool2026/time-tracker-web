@@ -121,7 +121,7 @@ export default function YearlyOverviewTable({
         // Skip target hours if before start date
         if (startDate && new Date(dateStr) < new Date(startDate)) {
           baseTargetHours = 0;
-        } else if (!isHoliday.isHoliday) {
+        } else {
           switch (date.getDay()) {
             case 1: baseTargetHours = timesheetSettings.target_hours_monday; break;
             case 2: baseTargetHours = timesheetSettings.target_hours_tuesday; break;
@@ -130,6 +130,13 @@ export default function YearlyOverviewTable({
             case 5: baseTargetHours = timesheetSettings.target_hours_friday; break;
             case 6: baseTargetHours = timesheetSettings.target_hours_saturday; break;
             case 0: baseTargetHours = timesheetSettings.target_hours_sunday; break;
+          }
+          if (isHoliday.isHoliday) {
+            if (isHoliday.isHalfHoliday) {
+              baseTargetHours = baseTargetHours / 2;
+            } else {
+              baseTargetHours = 0;
+            }
           }
         }
 

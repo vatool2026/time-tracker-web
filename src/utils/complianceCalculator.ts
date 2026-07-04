@@ -120,7 +120,8 @@ export function calculateComplianceViolations(
       // 3. Sunday/Holiday Check
       if (sundayHolidayEnabled && startD) {
         const isSunday = startD.getDay() === 0;
-        const isHoliday = isGermanHoliday(startD, companyState, companyHolidays).isHoliday;
+        const holidayInfo = isGermanHoliday(startD, companyState, companyHolidays);
+        const isHoliday = holidayInfo.isHoliday && !holidayInfo.isHalfHoliday;
         
         if (isSunday || isHoliday) {
           violations.push({

@@ -103,6 +103,10 @@ export function getGermanHolidays(year: number, state?: string): Map<string, str
     holidays.set(`${year}-09-20`, 'Weltkindertag');
   }
 
+  // 4. Half Holidays
+  holidays.set(`${year}-12-24`, 'Heiligabend (1/2)');
+  holidays.set(`${year}-12-31`, 'Silvester (1/2)');
+
   return holidays;
 }
 
@@ -113,7 +117,7 @@ export function isGermanHoliday(
   date: Date | string, 
   state?: string, 
   customHolidays?: { date: string, name: string }[]
-): { isHoliday: boolean; name?: string } {
+): { isHoliday: boolean; isHalfHoliday?: boolean; name?: string } {
   const d = typeof date === 'string' ? new Date(date) : date;
   const year = d.getFullYear();
   
@@ -124,16 +128,25 @@ export function isGermanHoliday(
 
   const holidays = getGermanHolidays(year, state);
   let name = holidays.get(dateKey);
+  let isPublicHolidayOverrideHalf = false;
 
   if (customHolidays) {
     const customMatch = customHolidays.find(ch => ch.date === dateKey);
     if (customMatch) {
-      name = customMatch.name;
+      if (customMatch.name === '__HALF__' && name) {
+        isPublicHolidayOverrideHalf = true;
+      } else {
+        name = customMatch.name;
+      }
     }
   }
 
+  const isHoliday = !!name && name !== '__DISABLED__';
+  const isHalfHoliday = isHoliday && (name?.includes('(1/2)') || isPublicHolidayOverrideHalf);
+
   return {
-    isHoliday: !!name,
-    name,
+    isHoliday,
+    isHalfHoliday,
+    name: isHoliday ? name : undefined,
   };
 }

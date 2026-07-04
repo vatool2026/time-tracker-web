@@ -91,18 +91,25 @@ export default function AnalyticsCharts({
     const dStr = date.toISOString().split('T')[0];
     if (startDate && new Date(dStr) < new Date(startDate)) return 0;
 
-    if (isGermanHoliday(date, profile?.companies?.state, companyHolidays || undefined).isHoliday) return 0;
+    const holidayInfo = isGermanHoliday(date, profile?.companies?.state, companyHolidays || undefined);
+    if (holidayInfo.isHoliday && !holidayInfo.isHalfHoliday) return 0;
+
+    let regularTarget = 0;
     const day = date.getDay();
     switch (day) {
-      case 1: return tsSet.target_hours_monday;
-      case 2: return tsSet.target_hours_tuesday;
-      case 3: return tsSet.target_hours_wednesday;
-      case 4: return tsSet.target_hours_thursday;
-      case 5: return tsSet.target_hours_friday;
-      case 6: return tsSet.target_hours_saturday;
-      case 0: return tsSet.target_hours_sunday;
-      default: return 0;
+      case 1: regularTarget = tsSet.target_hours_monday; break;
+      case 2: regularTarget = tsSet.target_hours_tuesday; break;
+      case 3: regularTarget = tsSet.target_hours_wednesday; break;
+      case 4: regularTarget = tsSet.target_hours_thursday; break;
+      case 5: regularTarget = tsSet.target_hours_friday; break;
+      case 6: regularTarget = tsSet.target_hours_saturday; break;
+      case 0: regularTarget = tsSet.target_hours_sunday; break;
     }
+
+    if (holidayInfo.isHoliday && holidayInfo.isHalfHoliday) {
+      return regularTarget / 2;
+    }
+    return regularTarget;
   };
 
   const now = new Date();

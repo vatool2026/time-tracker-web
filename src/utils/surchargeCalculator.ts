@@ -214,12 +214,15 @@ export function calculateSurcharges(
   let rawHolidayDay1 = 0;
   let rawHolidayDay2 = 0;
   
-  if (isGermanHoliday(startDate, companyState, companyHolidays).isHoliday) {
+  const holidayInfo1 = isGermanHoliday(startDate, companyState, companyHolidays);
+  if (holidayInfo1.isHoliday && !holidayInfo1.isHalfHoliday) {
     const holStart = parseTimeToDate(day1Str, "00:00:00");
     const holEnd = parseTimeToDate(day2Str, "00:00:00");
     rawHolidayDay1 += getIntervalOverlapHours(startDate, midNight, holStart, holEnd);
   }
-  if (isGermanHoliday(endDate, companyState, companyHolidays).isHoliday) {
+  
+  const holidayInfo2 = isGermanHoliday(endDate, companyState, companyHolidays);
+  if (holidayInfo2.isHoliday && !holidayInfo2.isHalfHoliday) {
     const holStart = parseTimeToDate(day2Str, "00:00:00");
     const holEnd = parseTimeToDate(day3Str, "00:00:00");
     rawHolidayDay2 += getIntervalOverlapHours(midNight, endDate, holStart, holEnd);
