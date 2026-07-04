@@ -14,6 +14,7 @@ import TravelAllowanceCalculator from './TravelAllowanceCalculator';
 import ThemeToggle from './ThemeToggle';
 import LogoUpload from './LogoUpload';
 import SecuritySettings from './SecuritySettings';
+import PersonalSettings from './PersonalSettings';
 import CustomHolidaysAdminTab from './CustomHolidaysAdminTab';
 import { isGermanHoliday } from '@/utils/holidays';
 import { calculateSurcharges } from '@/utils/surchargeCalculator';
@@ -30,7 +31,7 @@ import autoTable from 'jspdf-autotable';
 import { 
   Building, LogOut, Users, Download, Upload,
   Shield, FileText, CheckCircle, AlertCircle, PlusCircle, LayoutDashboard,
-  Clock, Calendar, CalendarDays, BarChart, Settings, MoreHorizontal, Table, ChevronDown, RefreshCw, ShieldAlert, Car, QrCode, DollarSign
+  Clock, Calendar, CalendarDays, BarChart, Settings, MoreHorizontal, Table, ChevronDown, RefreshCw, ShieldAlert, Car, QrCode, DollarSign, User
 } from 'lucide-react';
 import { getEmploymentCategoryLabel } from '@/utils/employment';
 
@@ -168,7 +169,7 @@ export default function DashboardContainer({
   const [adminSubTab, setAdminSubTab] = useState<'overview' | 'employees' | 'surcharges' | 'absences' | 'company' | 'carryover' | 'overtime' | 'import' | 'reports' | 'compliance' | 'settings' | 'qrcodes' | 'vacation' | 'holidays'>('overview');
   const [employeeSubTab, setEmployeeSubTab] = useState<'zeiterfassung' | 'stundenzettel' | 'urlaub' | 'statistik' | 'sonstiges' | 'einstellungen' | 'verstösse'>('zeiterfassung');
   const [adminEmployeeSubView, setAdminEmployeeSubView] = useState<'list' | 'import' | 'carryover'>('list');
-  const [settingsTab, setSettingsTab] = useState<'general' | 'security'>('general');
+  const [settingsTab, setSettingsTab] = useState<'personal' | 'general' | 'security'>('personal');
   // Modals
   const [editingEmployee, setEditingEmployee] = useState<Profile | null>(null);
   const [editingAbsenceCode, setEditingAbsenceCode] = useState<AbsenceCode | null>(null);
@@ -922,6 +923,22 @@ export default function DashboardContainer({
               <div style={{ maxWidth: '600px' }}>
                 <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem', marginBottom: '2rem' }}>
                   <button 
+                    onClick={() => setSettingsTab('personal')}
+                    style={{ 
+                      background: 'none', border: 'none', 
+                      padding: '0.5rem 1rem', 
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      color: settingsTab === 'personal' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                      borderBottom: settingsTab === 'personal' ? '2px solid var(--accent-primary)' : '2px solid transparent',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem'
+                    }}
+                  >
+                    <User size={16} /> Persönliches
+                  </button>
+                  <button 
                     onClick={() => setSettingsTab('general')}
                     style={{ 
                       background: 'none', border: 'none', 
@@ -952,11 +969,15 @@ export default function DashboardContainer({
                   </button>
                 </div>
 
+                {settingsTab === 'personal' && (
+                  <PersonalSettings profile={profile} />
+                )}
+
                 {settingsTab === 'general' && (
                   <div className="glass glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '1rem' }}>
                       <Settings size={24} style={{ color: 'var(--accent-primary)' }} />
-                      <h3 style={{ fontSize: '1.25rem', margin: 0 }}>Einstellungen</h3>
+                      <h3 style={{ fontSize: '1.25rem', margin: 0 }}>Allgemeine Einstellungen</h3>
                     </div>
                     
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0' }}>
@@ -966,26 +987,6 @@ export default function DashboardContainer({
                       </div>
                       <ThemeToggle />
                     </div>
-
-                    <form onSubmit={handleEmailChange} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1.5rem 0', borderTop: '1px solid var(--glass-border)' }}>
-                      <div>
-                        <h4 style={{ fontWeight: 600, marginBottom: '0.25rem' }}>E-Mail-Adresse ändern</h4>
-                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>Aktualisieren Sie Ihre Login-E-Mail-Adresse.</p>
-                      </div>
-                      <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
-                        <input 
-                          type="email" 
-                          value={newEmail}
-                          onChange={(e) => setNewEmail(e.target.value)}
-                          placeholder="Neue E-Mail-Adresse"
-                          className="input-field"
-                          style={{ flex: 1, minWidth: '200px' }}
-                        />
-                        <button type="submit" disabled={loading || !newEmail.includes('@')} className="btn btn-primary glass">
-                          E-Mail speichern
-                        </button>
-                      </div>
-                    </form>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderTop: '1px solid var(--glass-border)', paddingTop: '1.5rem' }}>
                       <div>
@@ -1696,80 +1697,88 @@ export default function DashboardContainer({
           {/* Sub-Tab content: Settings */}
           {adminSubTab === 'settings' && (
             <div style={{ maxWidth: '600px' }}>
-              <div className="glass glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '1rem' }}>
-                  <Settings size={24} style={{ color: 'var(--accent-primary)' }} />
-                  <h3 style={{ fontSize: '1.25rem', margin: 0 }}>Benutzereinstellungen</h3>
-                </div>
-                
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0' }}>
-                  <div>
-                    <h4 style={{ fontWeight: 600, marginBottom: '0.25rem' }}>Erscheinungsbild</h4>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>Wechseln Sie zwischen hellem und dunklem Design.</p>
-                  </div>
-                  <ThemeToggle />
-                </div>
-
-                <form onSubmit={handlePasswordChange} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1.5rem 0', borderTop: '1px solid var(--glass-border)' }}>
-                  <div>
-                    <h4 style={{ fontWeight: 600, marginBottom: '0.25rem' }}>Passwort ändern</h4>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>Setzen Sie ein neues Passwort für Ihren Account (mind. 6 Zeichen).</p>
-                  </div>
-                  <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', flexWrap: 'wrap', flexDirection: 'column' }}>
-                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                      <input 
-                        type="password" 
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="Neues Passwort"
-                        className="input-field"
-                        style={{ flex: 1, minWidth: '200px' }}
-                      />
-                      <input 
-                        type="password" 
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="Passwort wiederholen"
-                        className="input-field"
-                        style={{ flex: 1, minWidth: '200px' }}
-                      />
-                    </div>
-                    <button type="submit" disabled={loading || newPassword.length < 6 || !confirmPassword} className="btn btn-primary glass" style={{ alignSelf: 'flex-start' }}>
-                      Passwort speichern
-                    </button>
-                  </div>
-                </form>
-
-                <form onSubmit={handleEmailChange} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1.5rem 0', borderTop: '1px solid var(--glass-border)' }}>
-                  <div>
-                    <h4 style={{ fontWeight: 600, marginBottom: '0.25rem' }}>E-Mail-Adresse ändern</h4>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>Aktualisieren Sie Ihre Login-E-Mail-Adresse.</p>
-                  </div>
-                  <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
-                    <input 
-                      type="email" 
-                      value={newEmail}
-                      onChange={(e) => setNewEmail(e.target.value)}
-                      placeholder="Neue E-Mail-Adresse"
-                      className="input-field"
-                      style={{ flex: 1, minWidth: '200px' }}
-                    />
-                    <button type="submit" disabled={loading || !newEmail.includes('@')} className="btn btn-primary glass">
-                      E-Mail speichern
-                    </button>
-                  </div>
-                </form>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderTop: '1px solid var(--glass-border)', paddingTop: '1.5rem' }}>
-                  <div>
-                    <h4 style={{ fontWeight: 600, marginBottom: '0.25rem' }}>Abmelden</h4>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>Beenden Sie Ihre aktuelle Sitzung sicher.</p>
-                  </div>
-                  <button onClick={() => logoutAction()} className="btn btn-secondary glass" style={{ padding: '0.5rem 1rem' }}>
-                    <LogOut size={16} /> Abmelden
-                  </button>
-                </div>
+              <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem', marginBottom: '2rem' }}>
+                <button 
+                  onClick={() => setSettingsTab('personal')}
+                  style={{ 
+                    background: 'none', border: 'none', 
+                    padding: '0.5rem 1rem', 
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    color: settingsTab === 'personal' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                    borderBottom: settingsTab === 'personal' ? '2px solid var(--accent-primary)' : '2px solid transparent',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}
+                >
+                  <User size={16} /> Persönliches
+                </button>
+                <button 
+                  onClick={() => setSettingsTab('general')}
+                  style={{ 
+                    background: 'none', border: 'none', 
+                    padding: '0.5rem 1rem', 
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    color: settingsTab === 'general' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                    borderBottom: settingsTab === 'general' ? '2px solid var(--accent-primary)' : '2px solid transparent'
+                  }}
+                >
+                  Allgemein
+                </button>
+                <button 
+                  onClick={() => setSettingsTab('security')}
+                  style={{ 
+                    background: 'none', border: 'none', 
+                    padding: '0.5rem 1rem', 
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    color: settingsTab === 'security' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                    borderBottom: settingsTab === 'security' ? '2px solid var(--accent-primary)' : '2px solid transparent',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}
+                >
+                  <Shield size={16} /> Sicherheit
+                </button>
               </div>
+
+              {settingsTab === 'personal' && (
+                <PersonalSettings profile={profile} />
+              )}
+
+              {settingsTab === 'general' && (
+                <div className="glass glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '1rem' }}>
+                    <Settings size={24} style={{ color: 'var(--accent-primary)' }} />
+                    <h3 style={{ fontSize: '1.25rem', margin: 0 }}>Allgemeine Einstellungen</h3>
+                  </div>
+                  
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0' }}>
+                    <div>
+                      <h4 style={{ fontWeight: 600, marginBottom: '0.25rem' }}>Erscheinungsbild</h4>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>Wechseln Sie zwischen hellem und dunklem Design.</p>
+                    </div>
+                    <ThemeToggle />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderTop: '1px solid var(--glass-border)', paddingTop: '1.5rem' }}>
+                    <div>
+                      <h4 style={{ fontWeight: 600, marginBottom: '0.25rem' }}>Abmelden</h4>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>Beenden Sie Ihre aktuelle Sitzung sicher.</p>
+                    </div>
+                    <button onClick={() => logoutAction()} className="btn btn-secondary glass" style={{ padding: '0.5rem 1rem' }}>
+                      <LogOut size={16} /> Abmelden
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {settingsTab === 'security' && (
+                <SecuritySettings profile={profile} />
+              )}
             </div>
           )}
 
