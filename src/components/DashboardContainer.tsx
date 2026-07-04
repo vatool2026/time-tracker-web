@@ -169,7 +169,7 @@ export default function DashboardContainer({
   const [adminSubTab, setAdminSubTab] = useState<'overview' | 'employees' | 'surcharges' | 'absences' | 'company' | 'carryover' | 'overtime' | 'import' | 'reports' | 'compliance' | 'settings' | 'qrcodes' | 'vacation' | 'holidays'>('overview');
   const [employeeSubTab, setEmployeeSubTab] = useState<'zeiterfassung' | 'stundenzettel' | 'urlaub' | 'statistik' | 'sonstiges' | 'einstellungen' | 'verstösse'>('zeiterfassung');
   const [adminEmployeeSubView, setAdminEmployeeSubView] = useState<'list' | 'import' | 'carryover'>('list');
-  const [settingsTab, setSettingsTab] = useState<'personal' | 'general' | 'security'>('personal');
+  const [settingsTab, setSettingsTab] = useState<'personal' | 'general' | 'security'>('general');
   // Modals
   const [editingEmployee, setEditingEmployee] = useState<Profile | null>(null);
   const [editingAbsenceCode, setEditingAbsenceCode] = useState<AbsenceCode | null>(null);
@@ -923,6 +923,22 @@ export default function DashboardContainer({
               <div style={{ maxWidth: '600px' }}>
                 <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem', marginBottom: '2rem' }}>
                   <button 
+                    onClick={() => setSettingsTab('general')}
+                    style={{ 
+                      background: 'none', border: 'none', 
+                      padding: '0.5rem 1rem', 
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      color: settingsTab === 'general' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                      borderBottom: settingsTab === 'general' ? '2px solid var(--accent-primary)' : '2px solid transparent',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem'
+                    }}
+                  >
+                    <Settings size={16} /> Allgemein
+                  </button>
+                  <button 
                     onClick={() => setSettingsTab('personal')}
                     style={{ 
                       background: 'none', border: 'none', 
@@ -937,19 +953,6 @@ export default function DashboardContainer({
                     }}
                   >
                     <User size={16} /> Persönliches
-                  </button>
-                  <button 
-                    onClick={() => setSettingsTab('general')}
-                    style={{ 
-                      background: 'none', border: 'none', 
-                      padding: '0.5rem 1rem', 
-                      cursor: 'pointer',
-                      fontWeight: 600,
-                      color: settingsTab === 'general' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                      borderBottom: settingsTab === 'general' ? '2px solid var(--accent-primary)' : '2px solid transparent'
-                    }}
-                  >
-                    Allgemein
                   </button>
                   <button 
                     onClick={() => setSettingsTab('security')}
@@ -1699,6 +1702,22 @@ export default function DashboardContainer({
             <div style={{ maxWidth: '600px' }}>
               <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem', marginBottom: '2rem' }}>
                 <button 
+                  onClick={() => setSettingsTab('general')}
+                  style={{ 
+                    background: 'none', border: 'none', 
+                    padding: '0.5rem 1rem', 
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    color: settingsTab === 'general' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                    borderBottom: settingsTab === 'general' ? '2px solid var(--accent-primary)' : '2px solid transparent',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}
+                >
+                  <Settings size={16} /> Allgemein
+                </button>
+                <button 
                   onClick={() => setSettingsTab('personal')}
                   style={{ 
                     background: 'none', border: 'none', 
@@ -1713,19 +1732,6 @@ export default function DashboardContainer({
                   }}
                 >
                   <User size={16} /> Persönliches
-                </button>
-                <button 
-                  onClick={() => setSettingsTab('general')}
-                  style={{ 
-                    background: 'none', border: 'none', 
-                    padding: '0.5rem 1rem', 
-                    cursor: 'pointer',
-                    fontWeight: 600,
-                    color: settingsTab === 'general' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                    borderBottom: settingsTab === 'general' ? '2px solid var(--accent-primary)' : '2px solid transparent'
-                  }}
-                >
-                  Allgemein
                 </button>
                 <button 
                   onClick={() => setSettingsTab('security')}
