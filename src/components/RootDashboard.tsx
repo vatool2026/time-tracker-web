@@ -29,6 +29,7 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
   const [resetPasswordId, setResetPasswordId] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<'top' | 'bottom'>('bottom');
   
   const [resetHoursId, setResetHoursId] = useState<string | null>(null);
   const [resetHoursMonth, setResetHoursMonth] = useState<string>('ALL');
@@ -247,7 +248,17 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
 
         <div style={{ position: 'relative' }}>
           <button 
-            onClick={(e) => { e.stopPropagation(); setOpenDropdownId(openDropdownId === p.id ? null : p.id); }}
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              if (openDropdownId === p.id) {
+                setOpenDropdownId(null);
+              } else {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const spaceBelow = window.innerHeight - rect.bottom;
+                setDropdownPosition(spaceBelow < 250 ? 'top' : 'bottom');
+                setOpenDropdownId(p.id); 
+              }
+            }}
             className="btn-secondary"
             style={{ padding: '0.5rem', borderRadius: '50%', border: 'none', background: 'transparent', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
@@ -257,14 +268,14 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
             <>
               <div style={{ position: 'fixed', inset: 0, zIndex: 9 }} onClick={(e) => { e.stopPropagation(); setOpenDropdownId(null); }} />
               <div className="glass-dropdown" style={{ 
-                position: 'absolute', right: 0, top: '100%', 
+                position: 'absolute', right: 0, 
+                ...(dropdownPosition === 'top' ? { bottom: '100%', marginBottom: '0.5rem' } : { top: '100%', marginTop: '0.5rem' }),
                 padding: '0.5rem',
-                zIndex: 10,
+                zIndex: 50,
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '0.25rem',
-                minWidth: '200px',
-                marginTop: '0.5rem'
+                minWidth: '200px'
               }}>
                 <button className="dropdown-item" onClick={() => { setResetHoursId(p.id); setResetHoursMonth('ALL'); setOpenDropdownId(null); }}>
                   <Clock size={16} /> Stunden zurücksetzen
@@ -448,7 +459,7 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
             const isExpanded = expandedCompanyId === c.id;
 
             return (
-              <div key={c.id} style={{ border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden' }}>
+              <div key={c.id} style={{ border: '1px solid var(--border-color)', borderRadius: '12px' }}>
                 {/* Company Header */}
                 <div 
                   onClick={() => setExpandedCompanyId(isExpanded ? null : c.id)}
@@ -458,7 +469,11 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
                     display: 'flex', 
                     justifyContent: 'space-between', 
                     alignItems: 'center',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    borderTopLeftRadius: '11px',
+                    borderTopRightRadius: '11px',
+                    borderBottomLeftRadius: isExpanded ? '0' : '11px',
+                    borderBottomRightRadius: isExpanded ? '0' : '11px'
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -514,7 +529,17 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
                     {editingCompany !== c.id && (
                       <div style={{ position: 'relative' }}>
                         <button 
-                          onClick={(e) => { e.stopPropagation(); setOpenDropdownId(openDropdownId === c.id ? null : c.id); }}
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            if (openDropdownId === c.id) {
+                              setOpenDropdownId(null);
+                            } else {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              const spaceBelow = window.innerHeight - rect.bottom;
+                              setDropdownPosition(spaceBelow < 150 ? 'top' : 'bottom');
+                              setOpenDropdownId(c.id); 
+                            }
+                          }}
                           className="btn-secondary"
                           style={{ padding: '0.5rem', borderRadius: '50%', border: 'none', background: 'transparent', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         >
@@ -524,14 +549,14 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
                           <>
                             <div style={{ position: 'fixed', inset: 0, zIndex: 9 }} onClick={(e) => { e.stopPropagation(); setOpenDropdownId(null); }} />
                             <div className="glass-dropdown" style={{ 
-                              position: 'absolute', right: 0, top: '100%', 
+                              position: 'absolute', right: 0, 
+                              ...(dropdownPosition === 'top' ? { bottom: '100%', marginBottom: '0.5rem' } : { top: '100%', marginTop: '0.5rem' }),
                               padding: '0.5rem',
-                              zIndex: 10,
+                              zIndex: 50,
                               display: 'flex',
                               flexDirection: 'column',
                               gap: '0.25rem',
-                              minWidth: '150px',
-                              marginTop: '0.5rem'
+                              minWidth: '150px'
                             }}>
                               <button className="dropdown-item" onClick={(e) => { e.stopPropagation(); startEditCompany(e, c); setOpenDropdownId(null); }}>
                                 <Edit2 size={16} /> Bearbeiten
@@ -550,7 +575,13 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
 
                 {/* Employees List */}
                 {isExpanded && (
-                  <div style={{ padding: '1.5rem', background: 'rgba(0,0,0,0.1)', borderTop: '1px solid var(--border-color)' }}>
+                  <div style={{ 
+                    padding: '1.5rem', 
+                    background: 'rgba(0,0,0,0.1)', 
+                    borderTop: '1px solid var(--border-color)',
+                    borderBottomLeftRadius: '11px',
+                    borderBottomRightRadius: '11px'
+                  }}>
                     <h4 style={{ fontWeight: 600, marginBottom: '1rem', color: 'var(--text-secondary)' }}>Mitarbeiter</h4>
                     {companyEmployees.length === 0 ? (
                       <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Keine Mitarbeiter vorhanden.</p>
@@ -567,7 +598,7 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
 
           {/* Unassigned Profiles */}
           {unassignedProfiles.length > 0 && (
-            <div style={{ border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden', marginTop: '1rem' }}>
+            <div style={{ border: '1px solid var(--border-color)', borderRadius: '12px', marginTop: '1rem' }}>
               <div 
                 onClick={() => setExpandedCompanyId(expandedCompanyId === 'unassigned' ? null : 'unassigned')}
                 style={{ 
@@ -576,7 +607,11 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
                   display: 'flex', 
                   justifyContent: 'space-between', 
                   alignItems: 'center',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  borderTopLeftRadius: '11px',
+                  borderTopRightRadius: '11px',
+                  borderBottomLeftRadius: expandedCompanyId === 'unassigned' ? '0' : '11px',
+                  borderBottomRightRadius: expandedCompanyId === 'unassigned' ? '0' : '11px'
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -594,7 +629,13 @@ export default function RootDashboard({ companies, profiles, rootProfile }: any)
               </div>
 
               {expandedCompanyId === 'unassigned' && (
-                <div style={{ padding: '1.5rem', background: 'rgba(0,0,0,0.1)', borderTop: '1px solid var(--border-color)' }}>
+                <div style={{ 
+                  padding: '1.5rem', 
+                  background: 'rgba(0,0,0,0.1)', 
+                  borderTop: '1px solid var(--border-color)',
+                  borderBottomLeftRadius: '11px',
+                  borderBottomRightRadius: '11px'
+                }}>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     {unassignedProfiles.map((p: any) => renderProfile(p))}
                   </div>
