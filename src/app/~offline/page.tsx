@@ -1,6 +1,5 @@
 import { WifiOff } from 'lucide-react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
 
 export const metadata = {
   title: 'Offline - Zeiterfassung Pro',
@@ -27,11 +26,12 @@ export default function OfflinePage() {
           Diese werden automatisch synchronisiert, sobald Sie wieder online sind.
         </p>
 
-        <Button asChild className="w-full mt-4">
-          <Link href="/">
-            Zum Dashboard
-          </Link>
-        </Button>
+        <Link 
+          href="/"
+          className="w-full mt-4 bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-2 px-4 rounded-md inline-flex justify-center items-center transition-colors"
+        >
+          Zum Dashboard
+        </Link>
       </div>
     </div>
   );
