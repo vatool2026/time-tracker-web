@@ -23,17 +23,36 @@ interface TimeTrackerCardProps {
 }
 
 export default function TimeTrackerCard({ activeEntry, currentUserId, feature_urlaub = false, feature_abwesenheit = false, feature_qr_tracking = false, qrCodes = [] }: TimeTrackerCardProps) {
+  const [optimisticActiveEntry, setOptimisticActiveEntry] = useState<any>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('optimistic_active_entry');
+      if (activeEntry) {
+        if (stored) {
+          localStorage.removeItem('optimistic_active_entry');
+          setOptimisticActiveEntry(null);
+        }
+      } else if (stored) {
+        setOptimisticActiveEntry(JSON.parse(stored));
+      }
+    }
+  }, [activeEntry]);
+
+  const displayEntry = optimisticActiveEntry || activeEntry;
+  const isOfflineEntry = !!optimisticActiveEntry && !activeEntry;
+
   const [note, setNote] = useState<string>('');
   const [elapsedTime, setElapsedTime] = useState<string>('00:00:00');
   const [isOnBreak, setIsOnBreak] = useState<boolean>(() => {
-    if (typeof window !== 'undefined' && activeEntry) {
+    if (typeof window !== 'undefined' && (activeEntry || localStorage.getItem('optimistic_active_entry'))) {
       return !!sessionStorage.getItem('break_start_time');
     }
     return false;
   });
   const [breakElapsed, setBreakElapsed] = useState<string>('00:00');
   const [breakStartVal, setBreakStartVal] = useState<number | null>(() => {
-    if (typeof window !== 'undefined' && activeEntry) {
+    if (typeof window !== 'undefined' && (activeEntry || localStorage.getItem('optimistic_active_entry'))) {
       const stored = sessionStorage.getItem('break_start_time');
       return stored ? Number(stored) : null;
     }
@@ -64,15 +83,15 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
 
   // Timer for active work and active break
   useEffect(() => {
-    if (!activeEntry) {
+    if (!displayEntry) {
       setTimeout(() => setElapsedTime('00:00:00'), 0);
       return;
     }
 
     const timer = setInterval(() => {
       // Parse activeEntry start time
-      const [sh, sm, ss] = activeEntry.start_time.split(':').map(Number);
-      const startDate = new Date(activeEntry.entry_date);
+      const [sh, sm, ss] = displayEntry.start_time.split(':').map(Number);
+      const startDate = new Date(displayEntry.entry_date);
       startDate.setHours(sh, sm, ss, 0);
 
       const now = new Date();
@@ -81,7 +100,7 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
       let diffMs = now.getTime() - startDate.getTime();
       
       // Deduct recorded breaks
-      const breakMs = (activeEntry.break_minutes || 0) * 60 * 1000;
+      const breakMs = (displayEntry.break_minutes || 0) * 60 * 1000;
       diffMs = Math.max(0, diffMs - breakMs);
 
       // Deduct current active break if any
@@ -104,7 +123,7 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
       setElapsedTime(`${hours}:${minutes}:${seconds}`);
 
       // Check ArbZG break requirements
-      const totalBreakMinutes = (activeEntry.break_minutes || 0) + (isOnBreak && breakStartVal ? Math.floor((now.getTime() - breakStartVal) / 60000) : 0);
+      const totalBreakMinutes = (displayEntry.break_minutes || 0) + (isOnBreak && breakStartVal ? Math.floor((now.getTime() - breakStartVal) / 60000) : 0);
       
       if (totalSeconds >= 9 * 3600 && totalBreakMinutes < 45) {
         setBreakWarning('Achtung: Bei über 9 Std. Arbeitszeit sind gesetzlich mind. 45 Min. Pause vorgeschrieben.');
@@ -125,7 +144,7 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [activeEntry, isOnBreak, breakStartVal]);
+  }, [displayEntry, isOnBreak, breakStartVal]);
 
   const showMsg = (type: 'success' | 'error', text: string) => {
     setMessage({ type, text });
@@ -134,7 +153,21 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
 
   const handleClockIn = async () => {
     if (!navigator.onLine) {
-      await addOfflineAction('clockInAction', { note, qr_code_id: null });
+      const offlineAction = await addOfflineAction('clockInAction', { note, qr_code_id: null });
+      
+      // Optimistic UI updates
+      const now = new Date();
+      const newEntry = {
+        id: 'optimistic-' + Date.now(),
+        entry_date: now.toISOString().split('T')[0],
+        start_time: now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        break_minutes: 0,
+        note: note
+      };
+      setOptimisticActiveEntry(newEntry);
+      localStorage.setItem('optimistic_active_entry', JSON.stringify(newEntry));
+      setFaviconState('active');
+
       showMsg('success', 'Offline gespeichert. Wird synchronisiert, sobald wieder Empfang besteht.');
       setNote('');
       return;
@@ -200,6 +233,12 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
     }
     if (!navigator.onLine) {
       await addOfflineAction('clockOutAction', { note });
+      
+      // Optimistic UI updates
+      setOptimisticActiveEntry(null);
+      localStorage.removeItem('optimistic_active_entry');
+      setFaviconState('default');
+
       showMsg('success', 'Offline gespeichert. Wird synchronisiert, sobald wieder Empfang besteht.');
       setNote('');
       return;
@@ -279,25 +318,32 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
 
   return (
     <div className="grid-cols-2" style={{ gap: '2rem', marginBottom: '2rem' }}>
-      <FaviconManager state={!activeEntry ? 'default' : faviconState} />
+      <FaviconManager state={!displayEntry ? 'default' : faviconState} />
       
       {/* Primary Clocking Card */}
       <div className="glass glass-card flex-center" style={{ flexDirection: 'column', gap: '1.5rem', minHeight: '350px', position: 'relative' }}>
         
         {/* Header and Status indicator */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', flexWrap: 'wrap', gap: '0.5rem' }}>
-          <h2 style={{ fontSize: '1.5rem', color: 'var(--text-primary)', margin: 0 }}>Zeiterfassung</h2>
+          <h2 style={{ fontSize: '1.5rem', color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            Zeiterfassung
+            {isOfflineEntry && (
+              <span style={{ fontSize: '0.7rem', backgroundColor: 'var(--warning)', color: '#fff', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                Offline gespeichert
+              </span>
+            )}
+          </h2>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
             <span style={{
               width: '10px',
               height: '10px',
               borderRadius: '50%',
-              backgroundColor: activeEntry ? (isOnBreak ? 'var(--warning)' : 'var(--success)') : 'var(--text-secondary)',
-              boxShadow: activeEntry ? `0 0 10px ${isOnBreak ? 'var(--warning)' : 'var(--success)'}` : 'none'
+              backgroundColor: displayEntry ? (isOnBreak ? 'var(--warning)' : 'var(--success)') : 'var(--text-secondary)',
+              boxShadow: displayEntry ? `0 0 10px ${isOnBreak ? 'var(--warning)' : 'var(--success)'}` : 'none'
             }} />
             <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500, whiteSpace: 'nowrap' }}>
-              {activeEntry ? (isOnBreak ? 'In Pause' : 'Aktiv eingestempelt') : 'Nicht eingestempelt'}
+              {displayEntry ? (isOnBreak ? 'In Pause' : 'Aktiv eingestempelt') : 'Nicht eingestempelt'}
             </span>
           </div>
         </div>
@@ -308,7 +354,7 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
             {elapsedTime}
           </span>
           <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-            {activeEntry ? `Heute gestartet um ${activeEntry.start_time.slice(0,5)} Uhr` : 'Bereit zum Einstempeln'}
+            {displayEntry ? `Heute gestartet um ${displayEntry.start_time.slice(0,5)} Uhr` : 'Bereit zum Einstempeln'}
           </span>
         </div>
 
@@ -359,7 +405,7 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
           <div style={{ position: 'relative' }}>
             <input
               type="text"
-              placeholder={activeEntry ? "Was tun Sie gerade?" : "Notiz für heutigen Eintrag..."}
+              placeholder={displayEntry ? "Was tun Sie gerade?" : "Notiz für heutigen Eintrag..."}
               value={note}
               onChange={(e) => setNote(e.target.value)}
               className="input-field"
@@ -371,7 +417,7 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
 
         {/* Buttons Grid */}
         <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '0.5rem', marginTop: 'auto' }}>
-          {!activeEntry ? (
+          {!displayEntry ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
                 <button onClick={handleClockIn} className="btn btn-primary" style={{ flex: 1, height: '48px' }}>
@@ -428,7 +474,7 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
         </div>
 
         {/* Quick Break Buttons (when clocked in and not on active break) */}
-        {activeEntry && !isOnBreak && (
+        {displayEntry && !isOnBreak && (
           <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '0.5rem', marginTop: '-0.5rem' }}>
             <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginRight: 'auto' }}>Schnell-Pause:</span>
             <button onClick={() => handleQuickBreak(15)} className="btn btn-secondary glass" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderRadius: '4px' }}>+15m</button>

@@ -25,6 +25,7 @@ import CarryoverAdminTab from './CarryoverAdminTab';
 import ComplianceAdminTab from './ComplianceAdminTab';
 import ComplianceEmployeeTab from './ComplianceEmployeeTab';
 import MonatsabschlussAdminTab from './MonatsabschlussAdminTab';
+import PushSettingsAdminTab from './PushSettingsAdminTab';
 import QRCodeAdminTab from './QRCodeAdminTab';
 import AdminOvertimeTab from './AdminOvertimeTab';
 import VacationAdminTab from './VacationAdminTab';
@@ -33,7 +34,7 @@ import autoTable from 'jspdf-autotable';
 import { 
   Building, LogOut, Users, Download, Upload,
   Shield, FileText, CheckCircle, AlertCircle, PlusCircle, LayoutDashboard,
-  Clock, Calendar, CalendarDays, BarChart, Settings, MoreHorizontal, Table, ChevronDown, RefreshCw, ShieldAlert, Car, QrCode, DollarSign, User
+  Clock, Calendar, CalendarDays, BarChart, Settings, MoreHorizontal, Table, ChevronDown, RefreshCw, ShieldAlert, Car, QrCode, DollarSign, User, Bell
 } from 'lucide-react';
 import { getEmploymentCategoryLabel } from '@/utils/employment';
 
@@ -169,7 +170,7 @@ export default function DashboardContainer({
   const router = useRouter();
   const isAdmin = profile.role === 'COMPANY_ADMIN' || profile.role === 'ROOT';
   const [activeTab, setActiveTab] = useState<'employee' | 'admin'>(isAdmin ? 'admin' : 'employee');
-  const [adminSubTab, setAdminSubTab] = useState<'overview' | 'employees' | 'surcharges' | 'absences' | 'company' | 'carryover' | 'overtime' | 'import' | 'reports' | 'compliance' | 'settings' | 'qrcodes' | 'vacation' | 'holidays' | 'monatsabschluss'>('overview');
+  const [adminSubTab, setAdminSubTab] = useState<'overview' | 'employees' | 'surcharges' | 'absences' | 'company' | 'carryover' | 'overtime' | 'import' | 'reports' | 'compliance' | 'settings' | 'qrcodes' | 'vacation' | 'holidays' | 'monatsabschluss' | 'notifications'>('overview');
   const [employeeSubTab, setEmployeeSubTab] = useState<'zeiterfassung' | 'stundenzettel' | 'urlaub' | 'statistik' | 'sonstiges' | 'einstellungen' | 'verstösse'>('zeiterfassung');
   const [adminEmployeeSubView, setAdminEmployeeSubView] = useState<'list' | 'import' | 'carryover'>('list');
   const [settingsTab, setSettingsTab] = useState<'personal' | 'general' | 'security'>('general');
@@ -1046,6 +1047,7 @@ export default function DashboardContainer({
               ...(profile.companies?.feature_urlaub ? [{ id: 'vacation', label: 'Urlaub', icon: <Calendar size={16} /> }] : []),
               { id: 'holidays', label: 'Feiertage', icon: <Calendar size={16} /> },
               ...(profile.companies?.feature_qr_tracking ? [{ id: 'qrcodes', label: 'QR-Codes', icon: <QrCode size={16} /> }] : []),
+              { id: 'notifications', label: 'Benachrichtigungen', icon: <Bell size={16} /> },
               { id: 'company', label: 'Firmendetails', icon: <Building size={16} /> }
             ].map(tab => (
               <button
@@ -1103,6 +1105,11 @@ export default function DashboardContainer({
               allCompanyEntries={allCompanyEntries || []}
               allTimesheetSettings={allTimesheetSettings || []}
             />
+          )}
+
+          {/* Sub-Tab content: Notifications */}
+          {adminSubTab === 'notifications' && (
+            <PushSettingsAdminTab />
           )}
 
           {/* Sub-Tab content: Employees */}

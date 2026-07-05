@@ -1637,3 +1637,135 @@ export async function closeEmployeeMonthAction(
 
   return { success: true, message: 'Monatsabschluss erfolgreich gespeichert.' };
 }
+
+export async function getPushRulesAction() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, data: [] };
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('company_id, role')
+    .eq('id', user.id)
+    .single();
+
+  if (!profile || !profile.company_id || (profile.role !== 'COMPANY_ADMIN' && profile.role !== 'ROOT')) {
+    return { success: false, data: [] };
+  }
+
+  const { data, error } = await supabase
+    .from('push_notification_rules')
+    .select('*')
+    .eq('company_id', profile.company_id)
+    .order('trigger_minutes', { ascending: true });
+
+  if (error) return { success: false, data: [], message: error.message };
+  return { success: true, data: data || [] };
+}
+
+export async function savePushRuleAction(
+  id: string | null,
+  trigger_minutes: number,
+  condition_break_minutes: number,
+  message: string,
+  is_active: boolean
+) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, message: 'Nicht authentifiziert.' };
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('company_id, role')
+    .eq('id', user.id)
+    .single();
+
+  if (!profile || !profile.company_id || (profile.role !== 'COMPANY_ADMIN' && profile.role !== 'ROOT')) {
+    return { success: false, message: 'Keine Berechtigung.' };
+  }
+
+  const payload = {
+    company_id: profile.company_id,
+    trigger_minutes,
+    condition_break_minutes,
+    message,
+    is_active
+  };
+
+  let error;
+  if (id) {
+    const { error: updateError } = await supabase
+      .from('push_notification_rules')
+      .update(payload)
+      .eq('id', id)
+      .eq('company_id', profile.company_id);
+    error = updateError;
+  } else {
+    const { error: insertError } = await supabase
+      .from('push_notification_rules')
+      .insert([payload]);
+    error = insertError;
+  }
+
+  if (error) {
+    return { success: false, message: `Fehler beim Speichern: ${error.message}` };
+  }
+
+  return { success: true, message: 'Regel erfolgreich gespeichert.' };
+}
+
+export async function togglePushRuleAction(id: string, is_active: boolean) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, message: 'Nicht authentifiziert.' };
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('company_id, role')
+    .eq('id', user.id)
+    .single();
+
+  if (!profile || !profile.company_id || (profile.role !== 'COMPANY_ADMIN' && profile.role !== 'ROOT')) {
+    return { success: false, message: 'Keine Berechtigung.' };
+  }
+
+  const { error } = await supabase
+    .from('push_notification_rules')
+    .update({ is_active })
+    .eq('id', id)
+    .eq('company_id', profile.company_id);
+
+  if (error) {
+    return { success: false, message: `Fehler: ${error.message}` };
+  }
+
+  return { success: true, message: 'Status geändert.' };
+}
+
+export async function deletePushRuleAction(id: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, message: 'Nicht authentifiziert.' };
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('company_id, role')
+    .eq('id', user.id)
+    .single();
+
+  if (!profile || !profile.company_id || (profile.role !== 'COMPANY_ADMIN' && profile.role !== 'ROOT')) {
+    return { success: false, message: 'Keine Berechtigung.' };
+  }
+
+  const { error } = await supabase
+    .from('push_notification_rules')
+    .delete()
+    .eq('id', id)
+    .eq('company_id', profile.company_id);
+
+  if (error) {
+    return { success: false, message: `Fehler beim Löschen: ${error.message}` };
+  }
+
+  return { success: true, message: 'Regel erfolgreich gelöscht.' };
+}
