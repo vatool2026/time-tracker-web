@@ -170,6 +170,8 @@ export default function DashboardContainer({
   const router = useRouter();
   const isAdmin = profile.role === 'COMPANY_ADMIN' || profile.role === 'ROOT';
   const [activeTab, setActiveTab] = useState<'employee' | 'admin'>(isAdmin ? 'admin' : 'employee');
+  type AdminCategory = 'dashboard' | 'personnel' | 'reports' | 'compliance' | 'system';
+  const [adminCategory, setAdminCategory] = useState<AdminCategory>('dashboard');
   const [adminSubTab, setAdminSubTab] = useState<'overview' | 'employees' | 'surcharges' | 'absences' | 'company' | 'carryover' | 'overtime' | 'import' | 'reports' | 'compliance' | 'settings' | 'qrcodes' | 'vacation' | 'holidays' | 'monatsabschluss' | 'notifications'>('overview');
   const [employeeSubTab, setEmployeeSubTab] = useState<'zeiterfassung' | 'stundenzettel' | 'urlaub' | 'statistik' | 'sonstiges' | 'einstellungen' | 'verstösse'>('zeiterfassung');
   const [adminEmployeeSubView, setAdminEmployeeSubView] = useState<'list' | 'import' | 'carryover'>('list');
@@ -1034,50 +1036,107 @@ export default function DashboardContainer({
           
           {/* Admin Navigation */}
           {/* Desktop Admin Navigation */}
-          <div className="hidden-mobile" style={{ display: 'flex', borderBottom: '1px solid var(--glass-border)', paddingBottom: '1rem', marginBottom: '2rem', gap: '1.5rem', flexWrap: 'wrap' }}>
-            {[
-              { id: 'overview', label: 'Übersicht', icon: <LayoutDashboard size={16} /> },
-              { id: 'employees', label: 'Mitarbeiter verwalten', icon: <Users size={16} /> },
-              { id: 'compliance', label: 'Arbeitszeitschutz', icon: <ShieldAlert size={16} /> },
-              { id: 'surcharges', label: 'Zuschlagsregeln', icon: <Shield size={16} /> },
-              { id: 'absences', label: 'Kürzel', icon: <CalendarDays size={16} /> },
-              { id: 'reports', label: 'Monatsberichte & Export', icon: <FileText size={16} /> },
-              { id: 'overtime', label: 'Überstunden', icon: <DollarSign size={16} /> },
-              { id: 'monatsabschluss', label: 'Monatsabschluss', icon: <CalendarDays size={16} /> },
-              ...(profile.companies?.feature_urlaub ? [{ id: 'vacation', label: 'Urlaub', icon: <Calendar size={16} /> }] : []),
-              { id: 'holidays', label: 'Feiertage', icon: <Calendar size={16} /> },
-              ...(profile.companies?.feature_qr_tracking ? [{ id: 'qrcodes', label: 'QR-Codes', icon: <QrCode size={16} /> }] : []),
-              { id: 'notifications', label: 'Benachrichtigungen', icon: <Bell size={16} /> },
-              { id: 'company', label: 'Firmendetails', icon: <Building size={16} /> }
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  if (tab.id === 'monatsabschluss') {
-                    setAdminSubTab('monatsabschluss');
-                    return;
-                  } else {
-                    setAdminSubTab(tab.id as any);
-                  }
-                }}
-                style={{
-                  border: 'none',
-                  background: 'none',
-                  fontSize: '0.95rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  color: adminSubTab === tab.id ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  padding: '0.5rem 0',
-                  borderBottom: adminSubTab === tab.id ? '2px solid var(--accent-primary)' : 'none',
-                  transition: 'color 0.2s'
-                }}
-              >
-                {tab.icon} {tab.label}
-              </button>
-            ))}
+          <div className="hidden-mobile" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
+            
+            {/* Tier 1: Main Categories */}
+            <div style={{ display: 'flex', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem', gap: '1.5rem', flexWrap: 'wrap' }}>
+              {[
+                { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={16} /> },
+                { id: 'personnel', label: 'Personal & Zeiten', icon: <Users size={16} /> },
+                { id: 'reports', label: 'Auswertungen', icon: <FileText size={16} /> },
+                { id: 'compliance', label: 'Regelwerke', icon: <ShieldAlert size={16} /> },
+                { id: 'system', label: 'System', icon: <Settings size={16} /> }
+              ].map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => {
+                    setAdminCategory(cat.id as AdminCategory);
+                    if (cat.id === 'dashboard') setAdminSubTab('overview');
+                    if (cat.id === 'personnel') setAdminSubTab('employees');
+                    if (cat.id === 'reports') setAdminSubTab('monatsabschluss');
+                    if (cat.id === 'compliance') setAdminSubTab('compliance');
+                    if (cat.id === 'system') setAdminSubTab('company');
+                  }}
+                  style={{
+                    border: 'none',
+                    background: 'none',
+                    fontSize: '1rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    color: adminCategory === cat.id ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.5rem 0',
+                    borderBottom: adminCategory === cat.id ? '2px solid var(--accent-primary)' : '2px solid transparent',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {cat.icon} {cat.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Tier 2: Sub-Tabs */}
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              {(() => {
+                let subTabs: { id: string; label: string; icon: React.ReactNode }[] = [];
+                
+                if (adminCategory === 'dashboard') {
+                  subTabs = [
+                    { id: 'overview', label: 'Übersicht', icon: <LayoutDashboard size={14} /> }
+                  ];
+                } else if (adminCategory === 'personnel') {
+                  subTabs = [
+                    { id: 'employees', label: 'Mitarbeiter verwalten', icon: <Users size={14} /> },
+                    ...(profile.companies?.feature_urlaub ? [{ id: 'vacation', label: 'Urlaub', icon: <Calendar size={14} /> }] : []),
+                    { id: 'overtime', label: 'Überstunden', icon: <DollarSign size={14} /> }
+                  ];
+                } else if (adminCategory === 'reports') {
+                  subTabs = [
+                    { id: 'monatsabschluss', label: 'Monatsabschluss', icon: <CalendarDays size={14} /> },
+                    { id: 'reports', label: 'Monatsberichte & Export', icon: <FileText size={14} /> }
+                  ];
+                } else if (adminCategory === 'compliance') {
+                  subTabs = [
+                    { id: 'compliance', label: 'Arbeitszeitschutz', icon: <ShieldAlert size={14} /> },
+                    { id: 'surcharges', label: 'Zuschlagsregeln', icon: <Shield size={14} /> },
+                    { id: 'holidays', label: 'Feiertage', icon: <Calendar size={14} /> },
+                    { id: 'absences', label: 'Kürzel', icon: <CalendarDays size={14} /> }
+                  ];
+                } else if (adminCategory === 'system') {
+                  subTabs = [
+                    { id: 'company', label: 'Firmendetails', icon: <Building size={14} /> },
+                    { id: 'notifications', label: 'Benachrichtigungen', icon: <Bell size={14} /> },
+                    ...(profile.companies?.feature_qr_tracking ? [{ id: 'qrcodes', label: 'QR-Codes', icon: <QrCode size={14} /> }] : [])
+                  ];
+                }
+
+                return subTabs.map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setAdminSubTab(tab.id as any)}
+                    style={{
+                      border: '1px solid',
+                      borderColor: adminSubTab === tab.id ? 'var(--accent-primary)' : 'var(--glass-border)',
+                      background: adminSubTab === tab.id ? 'var(--accent-primary)' : 'transparent',
+                      color: adminSubTab === tab.id ? '#ffffff' : 'var(--text-secondary)',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      padding: '0.4rem 1rem',
+                      borderRadius: '100px',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {tab.icon} {tab.label}
+                  </button>
+                ));
+              })()}
+            </div>
           </div>
 
           {/* Sub-Tab content: Overview */}
@@ -1963,12 +2022,12 @@ export default function DashboardContainer({
               <button
                 key={tab.id}
                 onClick={() => {
-                  if (tab.id === 'monatsabschluss') {
-                    setAdminSubTab('monatsabschluss');
-                    return;
-                  } else {
-                    setAdminSubTab(tab.id as any);
-                  }
+                  setAdminSubTab(tab.id as any);
+                  if (['overview'].includes(tab.id)) setAdminCategory('dashboard');
+                  if (['employees', 'vacation', 'overtime'].includes(tab.id)) setAdminCategory('personnel');
+                  if (['monatsabschluss', 'reports'].includes(tab.id)) setAdminCategory('reports');
+                  if (['compliance', 'surcharges', 'holidays', 'absences'].includes(tab.id)) setAdminCategory('compliance');
+                  if (['company', 'notifications', 'qrcodes', 'settings'].includes(tab.id)) setAdminCategory('system');
                 }}
                 style={{
                   flex: '1 0 auto',
