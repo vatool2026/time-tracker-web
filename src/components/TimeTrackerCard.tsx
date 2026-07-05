@@ -5,6 +5,7 @@ import { Play, Square, Coffee, Edit3, LogIn, LogOut, AlertCircle, Check, Chevron
 import { clockInAction, clockOutAction, recordBreakAction, createManualTimeEntryAction } from '@/app/actions';
 import { addOfflineAction } from '@/utils/offlineQueue';
 import QRScannerModal from './QRScannerModal';
+import FaviconManager, { FaviconState } from './FaviconManager';
 
 interface TimeTrackerCardProps {
   activeEntry: {
@@ -59,6 +60,8 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
   const [manualEndTime, setManualEndTime] = useState<string>('16:30');
   const [manualBreak, setManualBreak] = useState<number>(30);
 
+  const [faviconState, setFaviconState] = useState<FaviconState>('default');
+
   // Timer for active work and active break
   useEffect(() => {
     if (!activeEntry) {
@@ -105,14 +108,19 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
       
       if (totalSeconds >= 9 * 3600 && totalBreakMinutes < 45) {
         setBreakWarning('Achtung: Bei über 9 Std. Arbeitszeit sind gesetzlich mind. 45 Min. Pause vorgeschrieben.');
+        setFaviconState('violation');
       } else if (totalSeconds >= 8.75 * 3600 && totalBreakMinutes < 45) {
         setBreakWarning('Hinweis: Nach 9 Std. Arbeitszeit sind gesetzlich mind. 45 Min. Pause vorgeschrieben.');
+        setFaviconState('warning');
       } else if (totalSeconds >= 6 * 3600 && totalBreakMinutes < 30) {
         setBreakWarning('Achtung: Nach 6 Std. Arbeitszeit sind gesetzlich mind. 30 Min. Pause vorgeschrieben.');
+        setFaviconState('violation');
       } else if (totalSeconds >= 5.75 * 3600 && totalBreakMinutes < 30) {
         setBreakWarning('Hinweis: Sie arbeiten bald 6 Stunden. Bitte denken Sie an die gesetzliche Pause (30 Min).');
+        setFaviconState('warning');
       } else {
         setBreakWarning(null);
+        setFaviconState('active');
       }
     }, 1000);
 
@@ -135,6 +143,51 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
     if (res.success) {
       showMsg('success', 'Einstempeln erfolgreich verbucht!');
       setNote('');
+      setFaviconState('active');
+
+      // Request Notification Permission and show local notification (Variante A)
+      if ('Notification' in window && 'serviceWorker' in navigator) {
+        Notification.requestPermission().then(async (permission) => {
+          if (permission === 'granted') {
+            const registration = await navigator.serviceWorker.ready;
+            
+            const now = new Date();
+            const startStr = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            
+            const breakTime = new Date(now.getTime() + 6 * 60 * 60 * 1000);
+            const breakStr = breakTime.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+            registration.showNotification('Zeiterfassung gestartet', {
+              body: `Gestartet um ${startStr} Uhr. Spätestens um ${breakStr} Uhr eine Pause von 30 Minuten machen!`,
+              icon: '/icons/icon-active.svg',
+              badge: '/icons/icon-active.svg',
+              tag: 'tracking-start',
+              requireInteraction: true // Make it persistent until dismissed
+            });
+
+            // Subscribe to Web Push (Variante B)
+            try {
+              const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+              });
+
+              await fetch('/api/push/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(subscription)
+              });
+            } catch (err) {
+              console.error('Failed to subscribe to web push:', err);
+            }
+          }
+        });
+      }
+      
+      // Set App Badge
+      if ('setAppBadge' in navigator) {
+        (navigator as any).setAppBadge(1).catch(() => {});
+      }
     } else {
       showMsg('error', res.message);
     }
@@ -155,6 +208,12 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
     if (res.success) {
       showMsg('success', 'Ausstempeln erfolgreich verbucht!');
       setNote('');
+      setFaviconState('default');
+      
+      // Clear App Badge
+      if ('clearAppBadge' in navigator) {
+        (navigator as any).clearAppBadge().catch(() => {});
+      }
     } else {
       showMsg('error', res.message);
     }
@@ -220,6 +279,7 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
 
   return (
     <div className="grid-cols-2" style={{ gap: '2rem', marginBottom: '2rem' }}>
+      <FaviconManager state={!activeEntry ? 'default' : faviconState} />
       
       {/* Primary Clocking Card */}
       <div className="glass glass-card flex-center" style={{ flexDirection: 'column', gap: '1.5rem', minHeight: '350px', position: 'relative' }}>

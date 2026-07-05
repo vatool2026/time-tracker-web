@@ -102,7 +102,7 @@ export default function ComplianceAdminTab({
           <h4 style={{ margin: '0 0 1rem 0' }}>Arbeitszeitschutz-Einstellungen pro Kategorie</h4>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {['FULLTIME', 'AZUBI', 'PARTTIME', 'MIDIJOB', 'MINIJOB', 'OTHER'].map(cat => {
+            {['AZUBI', 'MIDIJOB', 'MINIJOB', 'OTHER', 'PARTTIME', 'FULLTIME'].map(cat => {
               const set = allCategorySettings.find(s => s.category === cat) || {
                 compliance_max_hours_enabled: true,
                 compliance_max_hours: 10,

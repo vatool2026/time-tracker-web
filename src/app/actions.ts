@@ -200,7 +200,7 @@ export async function registerAction(formData: FormData): Promise<ActionResponse
   }
 
   // 4. Create default Category Settings for all categories for this company
-  const categories = ['FULLTIME', 'AZUBI', 'PARTTIME', 'MIDIJOB', 'MINIJOB', 'OTHER'];
+  const categories = ['AZUBI', 'MIDIJOB', 'MINIJOB', 'OTHER', 'PARTTIME', 'FULLTIME'];
   const categoryInserts = categories.map(cat => ({
     company_id: companyId,
     category: cat,

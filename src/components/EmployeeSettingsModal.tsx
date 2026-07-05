@@ -198,12 +198,12 @@ export default function EmployeeSettingsModal({
                 value={category}
                 onChange={(val) => setCategory(val as 'FULLTIME' | 'AZUBI' | 'PARTTIME' | 'MIDIJOB' | 'MINIJOB' | 'OTHER')}
                 options={[
-                  { value: 'FULLTIME', label: 'Vollzeit' },
                   { value: 'AZUBI', label: 'Azubi' },
-                  { value: 'PARTTIME', label: 'Teilzeit' },
                   { value: 'MIDIJOB', label: 'Midi Job' },
                   { value: 'MINIJOB', label: 'Mini Job' },
-                  { value: 'OTHER', label: 'Sonstige' }
+                  { value: 'OTHER', label: 'Sonstige' },
+                  { value: 'PARTTIME', label: 'Teilzeit' },
+                  { value: 'FULLTIME', label: 'Vollzeit' }
                 ]}
               />
             </div>

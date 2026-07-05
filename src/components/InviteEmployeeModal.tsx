@@ -132,12 +132,12 @@ export default function InviteEmployeeModal({ onClose, onSuccess }: InviteEmploy
                 onChange={setEmploymentCategory}
                 disabled={loading}
                 options={[
-                  { value: 'FULLTIME', label: 'Vollzeit' },
                   { value: 'AZUBI', label: 'Azubi' },
-                  { value: 'PARTTIME', label: 'Teilzeit' },
                   { value: 'MIDIJOB', label: 'Midi Job' },
                   { value: 'MINIJOB', label: 'Mini Job' },
-                  { value: 'OTHER', label: 'Sonstige' }
+                  { value: 'OTHER', label: 'Sonstige' },
+                  { value: 'PARTTIME', label: 'Teilzeit' },
+                  { value: 'FULLTIME', label: 'Vollzeit' }
                 ]}
               />
             </div>

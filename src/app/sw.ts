@@ -30,3 +30,20 @@ const serwist = new Serwist({
 });
 
 serwist.addEventListeners();
+
+self.addEventListener('push', function (event: PushEvent) {
+  if (event.data) {
+    const data = event.data.json();
+    const options = {
+      body: data.body,
+      icon: data.icon || '/icons/icon-default.svg',
+      badge: data.badge || '/icons/icon-default.svg',
+      vibrate: [100, 50, 100],
+      data: {
+        dateOfArrival: Date.now(),
+        primaryKey: '2'
+      }
+    };
+    event.waitUntil(self.registration.showNotification(data.title || 'Zeiterfassung', options));
+  }
+});

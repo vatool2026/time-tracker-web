@@ -24,6 +24,7 @@ import ImportTimeEntries from './ImportTimeEntries';
 import CarryoverAdminTab from './CarryoverAdminTab';
 import ComplianceAdminTab from './ComplianceAdminTab';
 import ComplianceEmployeeTab from './ComplianceEmployeeTab';
+import MonatsabschlussAdminTab from './MonatsabschlussAdminTab';
 import QRCodeAdminTab from './QRCodeAdminTab';
 import AdminOvertimeTab from './AdminOvertimeTab';
 import VacationAdminTab from './VacationAdminTab';
@@ -168,7 +169,7 @@ export default function DashboardContainer({
   const router = useRouter();
   const isAdmin = profile.role === 'COMPANY_ADMIN' || profile.role === 'ROOT';
   const [activeTab, setActiveTab] = useState<'employee' | 'admin'>(isAdmin ? 'admin' : 'employee');
-  const [adminSubTab, setAdminSubTab] = useState<'overview' | 'employees' | 'surcharges' | 'absences' | 'company' | 'carryover' | 'overtime' | 'import' | 'reports' | 'compliance' | 'settings' | 'qrcodes' | 'vacation' | 'holidays'>('overview');
+  const [adminSubTab, setAdminSubTab] = useState<'overview' | 'employees' | 'surcharges' | 'absences' | 'company' | 'carryover' | 'overtime' | 'import' | 'reports' | 'compliance' | 'settings' | 'qrcodes' | 'vacation' | 'holidays' | 'monatsabschluss'>('overview');
   const [employeeSubTab, setEmployeeSubTab] = useState<'zeiterfassung' | 'stundenzettel' | 'urlaub' | 'statistik' | 'sonstiges' | 'einstellungen' | 'verstösse'>('zeiterfassung');
   const [adminEmployeeSubView, setAdminEmployeeSubView] = useState<'list' | 'import' | 'carryover'>('list');
   const [settingsTab, setSettingsTab] = useState<'personal' | 'general' | 'security'>('general');
@@ -1051,7 +1052,8 @@ export default function DashboardContainer({
                 key={tab.id}
                 onClick={() => {
                   if (tab.id === 'monatsabschluss') {
-                    router.push('/dashboard/monatsabschluss');
+                    setAdminSubTab('monatsabschluss');
+                    return;
                   } else {
                     setAdminSubTab(tab.id as any);
                   }
@@ -1260,7 +1262,7 @@ export default function DashboardContainer({
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {['FULLTIME', 'AZUBI', 'PARTTIME', 'MIDIJOB', 'MINIJOB', 'OTHER'].map(cat => {
+                {['AZUBI', 'MIDIJOB', 'MINIJOB', 'OTHER', 'PARTTIME', 'FULLTIME'].map(cat => {
                   const set = allCategorySettings.find(s => s.category === cat) || {
                     night_surcharge_start_time: '22:00:00',
                     night_surcharge_end_time: '06:00:00',
@@ -1349,7 +1351,7 @@ export default function DashboardContainer({
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {['FULLTIME', 'AZUBI', 'PARTTIME', 'MIDIJOB', 'MINIJOB', 'OTHER'].map(cat => {
+                {['AZUBI', 'MIDIJOB', 'MINIJOB', 'OTHER', 'PARTTIME', 'FULLTIME'].map(cat => {
                   const codes = absenceCodes?.filter(c => c.employment_category === cat) || [];
 
                   return (
@@ -1721,6 +1723,24 @@ export default function DashboardContainer({
             </div>
           )}
 
+          {/* Sub-Tab content: Monatsabschluss */}
+          {adminSubTab === 'monatsabschluss' && (
+            <div style={{ maxWidth: '1200px' }}>
+              <div style={{ marginBottom: '2rem' }}>
+                <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Monatsabschluss</h1>
+                <p style={{ color: 'var(--text-secondary)' }}>
+                  Überprüfen Sie die geleisteten Arbeitsstunden für den abgelaufenen Monat und schließen Sie den Monat für Ihre Mitarbeiter ab.
+                  Überstunden können in den nächsten Monat übertragen oder ausgezahlt werden.
+                </p>
+              </div>
+              <MonatsabschlussAdminTab 
+                employees={employees || []} 
+                company={profile.companies} 
+                currentUserId={profile.id}
+              />
+            </div>
+          )}
+
           {/* Sub-Tab content: Settings */}
           {adminSubTab === 'settings' && (
             <div style={{ maxWidth: '600px' }}>
@@ -1937,7 +1957,8 @@ export default function DashboardContainer({
                 key={tab.id}
                 onClick={() => {
                   if (tab.id === 'monatsabschluss') {
-                    router.push('/dashboard/monatsabschluss');
+                    setAdminSubTab('monatsabschluss');
+                    return;
                   } else {
                     setAdminSubTab(tab.id as any);
                   }

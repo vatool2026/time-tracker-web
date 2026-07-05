@@ -4,8 +4,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { getMonthlyBalancesAction, closeEmployeeMonthAction } from '@/app/actions';
 import { calculateComplianceViolations } from '@/utils/complianceCalculator';
+import { getEmploymentCategoryLabel } from '@/utils/employment';
 
-export default function MonatsabschlussClient({ employees, company, currentUserId }: any) {
+export default function MonatsabschlussAdminTab({ employees, company, currentUserId }: any) {
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth()); // Default to previous month. (0-indexed in JS, but we will use 1-12)
   const [timeEntries, setTimeEntries] = useState<any[]>([]);
@@ -22,6 +23,8 @@ export default function MonatsabschlussClient({ employees, company, currentUserI
     const d = new Date();
     return d.getMonth() === 0 ? 12 : d.getMonth();
   });
+
+  const [categoryFilter, setCategoryFilter] = useState('ALL');
 
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
   const [transferHours, setTransferHours] = useState(0);
@@ -147,6 +150,23 @@ export default function MonatsabschlussClient({ employees, company, currentUserI
             ))}
           </select>
         </div>
+        <div style={{ flex: '1', maxWidth: '300px' }}>
+          <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 600 }}>Mitarbeiter-Typ</label>
+          <select 
+            value={categoryFilter} 
+            onChange={e => setCategoryFilter(e.target.value)}
+            className="custom-select"
+            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'var(--glass-bg)', color: 'var(--text-primary)' }}
+          >
+            <option value="ALL">Alle anzeigen</option>
+            <option value="AZUBI">Azubi</option>
+            <option value="MIDIJOB">Midi Job</option>
+            <option value="MINIJOB">Mini Job</option>
+            <option value="OTHER">Sonstige</option>
+            <option value="PARTTIME">Teilzeit</option>
+            <option value="FULLTIME">Vollzeit</option>
+          </select>
+        </div>
       </div>
 
       {loading ? (
@@ -166,7 +186,9 @@ export default function MonatsabschlussClient({ employees, company, currentUserI
               </tr>
             </thead>
             <tbody>
-              {employees.map((emp: any) => {
+              {employees
+                .filter((emp: any) => categoryFilter === 'ALL' || emp.employment_category === categoryFilter)
+                .map((emp: any) => {
                 const stats = calculateEmployeeStats(emp);
                 const hasViolations = violations.some(v => v.employee.id === emp.id);
                 
@@ -178,7 +200,7 @@ export default function MonatsabschlussClient({ employees, company, currentUserI
                         <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--danger)' }} title="Verstöße gefunden"></span>
                       )}
                     </td>
-                    <td style={{ padding: '1rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{emp.employment_category}</td>
+                    <td style={{ padding: '1rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{getEmploymentCategoryLabel(emp.employment_category)}</td>
                     <td style={{ padding: '1rem', textAlign: 'center', fontWeight: 600 }}>{stats.worked.toFixed(2)}h</td>
                     <td style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>{stats.target.toFixed(2)}h</td>
                     <td style={{ 
