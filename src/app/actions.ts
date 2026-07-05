@@ -1564,3 +1564,76 @@ export async function updateCompanyHolidaysAction(holidays: { name: string; date
 
   return { success: true, message: 'Benutzerdefinierte Feiertage wurden gespeichert.' };
 }
+
+export async function getMonthlyBalancesAction(year: number, month: number) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, data: [] };
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('company_id, role')
+    .eq('id', user.id)
+    .single();
+
+  if (!profile || !profile.company_id || (profile.role !== 'COMPANY_ADMIN' && profile.role !== 'ROOT')) {
+    return { success: false, data: [] };
+  }
+
+  const { data: balances, error } = await supabase
+    .from('monthly_time_balances')
+    .select(`
+      *,
+      profiles!inner(company_id)
+    `)
+    .eq('year', year)
+    .eq('month', month)
+    .eq('profiles.company_id', profile.company_id);
+
+  if (error) {
+    console.error("Fehler beim Laden der Monatsabschlüsse:", error);
+    return { success: false, data: [] };
+  }
+  return { success: true, data: balances || [] };
+}
+
+export async function closeEmployeeMonthAction(
+  userId: string,
+  year: number,
+  month: number,
+  transferredHours: number,
+  paidOutHours: number
+) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, message: 'Nicht authentifiziert.' };
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('company_id, role')
+    .eq('id', user.id)
+    .single();
+
+  if (!profile || (profile.role !== 'COMPANY_ADMIN' && profile.role !== 'ROOT')) {
+    return { success: false, message: 'Keine Berechtigung.' };
+  }
+
+  const { error } = await supabase
+    .from('monthly_time_balances')
+    .upsert({
+      user_id: userId,
+      year,
+      month,
+      transferred_hours: transferredHours,
+      paid_out_hours: paidOutHours,
+      status: 'CLOSED'
+    }, {
+      onConflict: 'user_id, year, month'
+    });
+
+  if (error) {
+    return { success: false, message: `Fehler beim Speichern: ${error.message}` };
+  }
+
+  return { success: true, message: 'Monatsabschluss erfolgreich gespeichert.' };
+}

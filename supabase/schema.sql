@@ -1,6 +1,7 @@
 -- Drop existing tables and types to avoid conflicts during migration
 DROP TABLE IF EXISTS public.time_entries CASCADE;
 DROP TABLE IF EXISTS public.timesheet_settings CASCADE;
+DROP TABLE IF EXISTS public.monthly_time_balances CASCADE;
 DROP TABLE IF EXISTS public.category_settings CASCADE;
 DROP TABLE IF EXISTS public.profiles CASCADE;
 DROP TABLE IF EXISTS public.companies CASCADE;
@@ -71,6 +72,19 @@ CREATE TABLE public.timesheet_settings (
   UNIQUE(user_id, year)
 );
 
+-- Create Monthly Time Balances (Stundenkonto)
+CREATE TABLE public.monthly_time_balances (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  year INTEGER NOT NULL,
+  month INTEGER NOT NULL,
+  transferred_hours DECIMAL DEFAULT 0.0,
+  paid_out_hours DECIMAL DEFAULT 0.0,
+  status TEXT DEFAULT 'CLOSED',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  UNIQUE(user_id, year, month)
+);
+
 -- Create Time Entry table
 CREATE TABLE public.time_entries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -92,6 +106,7 @@ ALTER TABLE public.companies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.category_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.timesheet_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.monthly_time_balances ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.time_entries ENABLE ROW LEVEL SECURITY;
 
 -- Security Definer Functions to avoid RLS recursion
@@ -139,3 +154,9 @@ CREATE POLICY "Allow admin to delete timesheet settings" ON public.timesheet_set
 CREATE POLICY "Allow users to view own time entries or admin to view company entries" ON public.time_entries FOR SELECT TO authenticated USING (public.get_user_role() = 'ROOT' OR user_id = auth.uid() OR (public.get_user_role() = 'COMPANY_ADMIN' AND (SELECT company_id FROM public.profiles WHERE id = user_id) = public.get_user_company_id()));
 CREATE POLICY "Allow users to insert own time entries" ON public.time_entries FOR INSERT TO authenticated WITH CHECK (public.get_user_role() = 'ROOT' OR user_id = auth.uid());
 CREATE POLICY "Allow users or admins to update or delete time entries" ON public.time_entries FOR ALL TO authenticated USING (public.get_user_role() = 'ROOT' OR user_id = auth.uid() OR (public.get_user_role() = 'COMPANY_ADMIN' AND (SELECT company_id FROM public.profiles WHERE id = user_id) = public.get_user_company_id()));
+
+-- 6. Monthly Time Balances Policies
+CREATE POLICY "Allow users to view own monthly balances or admin to view company balances" ON public.monthly_time_balances FOR SELECT TO authenticated USING (public.get_user_role() = 'ROOT' OR user_id = auth.uid() OR (public.get_user_role() = 'COMPANY_ADMIN' AND (SELECT company_id FROM public.profiles WHERE id = user_id) = public.get_user_company_id()));
+CREATE POLICY "Allow admin to insert monthly balances" ON public.monthly_time_balances FOR INSERT TO authenticated WITH CHECK (public.get_user_role() = 'ROOT' OR (public.get_user_role() = 'COMPANY_ADMIN' AND (SELECT company_id FROM public.profiles WHERE id = user_id) = public.get_user_company_id()));
+CREATE POLICY "Allow admin to update monthly balances" ON public.monthly_time_balances FOR UPDATE TO authenticated USING (public.get_user_role() = 'ROOT' OR (public.get_user_role() = 'COMPANY_ADMIN' AND (SELECT company_id FROM public.profiles WHERE id = user_id) = public.get_user_company_id()));
+CREATE POLICY "Allow admin to delete monthly balances" ON public.monthly_time_balances FOR DELETE TO authenticated USING (public.get_user_role() = 'ROOT' OR (public.get_user_role() = 'COMPANY_ADMIN' AND (SELECT company_id FROM public.profiles WHERE id = user_id) = public.get_user_company_id()));

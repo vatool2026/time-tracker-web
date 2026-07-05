@@ -1039,6 +1039,7 @@ export default function DashboardContainer({
               { id: 'absences', label: 'Kürzel', icon: <CalendarDays size={16} /> },
               { id: 'reports', label: 'Monatsberichte & Export', icon: <FileText size={16} /> },
               { id: 'overtime', label: 'Überstunden', icon: <DollarSign size={16} /> },
+              { id: 'monatsabschluss', label: 'Monatsabschluss', icon: <CalendarDays size={16} /> },
               ...(profile.companies?.feature_urlaub ? [{ id: 'vacation', label: 'Urlaub', icon: <Calendar size={16} /> }] : []),
               { id: 'holidays', label: 'Feiertage', icon: <Calendar size={16} /> },
               ...(profile.companies?.feature_qr_tracking ? [{ id: 'qrcodes', label: 'QR-Codes', icon: <QrCode size={16} /> }] : []),
@@ -1046,7 +1047,13 @@ export default function DashboardContainer({
             ].map(tab => (
               <button
                 key={tab.id}
-                onClick={() => setAdminSubTab(tab.id as any)}
+                onClick={() => {
+                  if (tab.id === 'monatsabschluss') {
+                    router.push('/dashboard/monatsabschluss');
+                  } else {
+                    setAdminSubTab(tab.id as any);
+                  }
+                }}
                 style={{
                   border: 'none',
                   background: 'none',
@@ -1918,6 +1925,7 @@ export default function DashboardContainer({
               { id: 'absences', label: 'Kürzel', icon: <CalendarDays size={20} /> },
               { id: 'reports', label: 'Berichte', icon: <FileText size={20} /> },
               { id: 'overtime', label: 'Überst.', icon: <DollarSign size={20} /> },
+              { id: 'monatsabschluss', label: 'Abschluss', icon: <CalendarDays size={20} /> },
               { id: 'holidays', label: 'Feiertage', icon: <Calendar size={20} /> },
               ...(profile.companies?.feature_qr_tracking ? [{ id: 'qrcodes', label: 'QR-Codes', icon: <QrCode size={20} /> }] : []),
               { id: 'company', label: 'Firma', icon: <Building size={20} /> },
@@ -1925,7 +1933,13 @@ export default function DashboardContainer({
             ].map((tab: any) => (
               <button
                 key={tab.id}
-                onClick={() => setAdminSubTab(tab.id as any)}
+                onClick={() => {
+                  if (tab.id === 'monatsabschluss') {
+                    router.push('/dashboard/monatsabschluss');
+                  } else {
+                    setAdminSubTab(tab.id as any);
+                  }
+                }}
                 style={{
                   flex: '1 0 auto',
                   display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem',

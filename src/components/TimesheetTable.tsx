@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/utils/supabase/client';
 import { 
   deleteTimeEntryAction, 
   updateTimeEntryAction, 
@@ -102,6 +103,7 @@ export default function TimesheetTable({
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
+  const [monthlyBalance, setMonthlyBalance] = useState<any>(null);
 
   const toggleRow = (dateStr: string) => {
     const newSet = new Set(expandedDates);
@@ -125,6 +127,31 @@ export default function TimesheetTable({
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth(); // 0-11
+
+  useEffect(() => {
+    // Fetch carry-over from PREVIOUS month
+    const fetchBalance = async () => {
+      const supabase = createClient();
+      let prevYear = year;
+      let prevMonth = month; // Since month is 0-indexed, if current is Jan (0), prev is Dec (12 of prev year in our DB logic)
+      if (prevMonth === 0) {
+        prevMonth = 12;
+        prevYear -= 1;
+      }
+      
+      const { data } = await supabase
+        .from('monthly_time_balances')
+        .select('*')
+        .eq('user_id', currentUserId)
+        .eq('year', prevYear)
+        .eq('month', prevMonth)
+        .single();
+      
+      if (data) setMonthlyBalance(data);
+      else setMonthlyBalance(null);
+    };
+    fetchBalance();
+  }, [year, month, currentUserId]);
 
   const realCurrentDate = new Date();
   const currentRealYear = realCurrentDate.getFullYear();
@@ -748,6 +775,23 @@ export default function TimesheetTable({
               );
             })}
           </div>
+          
+          {/* Custom Balance Display */}
+          <div className="glass glass-card flex flex-col justify-center gap-1 p-5 shadow-sm overflow-hidden relative mt-4">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/10 rounded-bl-[100px] -z-10" />
+            <div className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+              Überstunden (Gesamt)
+            </div>
+            <div className={`text-3xl font-bold ${totalOvertime > 0 ? 'text-green-600 dark:text-green-500' : totalOvertime < 0 ? 'text-red-600 dark:text-red-500' : 'text-zinc-800 dark:text-zinc-100'}`}>
+              {totalOvertime > 0 ? '+' : ''}{totalOvertime.toFixed(2)}h
+            </div>
+            {monthlyBalance?.transferred_hours !== 0 && (
+               <div className="text-xs mt-1 text-zinc-500">
+                 Inkl. Vormonat: <span className="font-semibold">{(totalOvertime + (monthlyBalance?.transferred_hours || 0)).toFixed(2)}h</span> (Übertrag: {monthlyBalance?.transferred_hours > 0 ? '+' : ''}{monthlyBalance?.transferred_hours || 0}h)
+               </div>
+            )}
+          </div>
+
           <div className="hidden-desktop">
             <CustomSelect
               value={month.toString()}
