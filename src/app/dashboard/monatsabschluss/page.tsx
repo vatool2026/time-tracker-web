@@ -31,12 +31,14 @@ export default async function MonatsabschlussPage() {
   const company = profile.companies;
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">Monatsabschluss</h1>
-      <p className="text-muted-foreground">
-        Überprüfen Sie die geleisteten Arbeitsstunden für den abgelaufenen Monat und schließen Sie den Monat für Ihre Mitarbeiter ab.
-        Überstunden können in den nächsten Monat übertragen oder ausgezahlt werden.
-      </p>
+    <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+      <div style={{ marginBottom: '2rem' }}>
+        <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Monatsabschluss</h1>
+        <p style={{ color: 'var(--text-secondary)' }}>
+          Überprüfen Sie die geleisteten Arbeitsstunden für den abgelaufenen Monat und schließen Sie den Monat für Ihre Mitarbeiter ab.
+          Überstunden können in den nächsten Monat übertragen oder ausgezahlt werden.
+        </p>
+      </div>
 
       <MonatsabschlussClient 
         employees={employees || []} 

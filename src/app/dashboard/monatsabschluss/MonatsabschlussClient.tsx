@@ -120,25 +120,28 @@ export default function MonatsabschlussClient({ employees, company, currentUserI
   }, [employees, timeEntries, categorySettings]);
 
   return (
-    <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-6">
+  return (
+    <div className="glass glass-card" style={{ padding: '2rem' }}>
       
-      <div className="flex gap-4 mb-6">
-        <div>
-          <label className="block text-sm font-medium mb-1">Jahr</label>
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', alignItems: 'flex-end' }}>
+        <div style={{ flex: '1', maxWidth: '200px' }}>
+          <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 600 }}>Jahr</label>
           <select 
             value={selectedYear} 
             onChange={e => setSelectedYear(parseInt(e.target.value))}
-            className="border rounded px-3 py-2 bg-transparent dark:border-zinc-700"
+            className="custom-select"
+            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'var(--glass-bg)', color: 'var(--text-primary)' }}
           >
             {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Monat</label>
+        <div style={{ flex: '1', maxWidth: '300px' }}>
+          <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 600 }}>Monat</label>
           <select 
             value={selectedMonth} 
             onChange={e => setSelectedMonth(parseInt(e.target.value))}
-            className="border rounded px-3 py-2 bg-transparent dark:border-zinc-700"
+            className="custom-select"
+            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'var(--glass-bg)', color: 'var(--text-primary)' }}
           >
             {[...Array(12)].map((_, i) => (
               <option key={i+1} value={i+1}>{i+1} - {new Date(2000, i, 1).toLocaleString('de', { month: 'long' })}</option>
@@ -148,19 +151,19 @@ export default function MonatsabschlussClient({ employees, company, currentUserI
       </div>
 
       {loading ? (
-        <div>Lade Daten...</div>
+        <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>Lade Daten...</div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+        <div style={{ overflowX: 'auto' }}>
+          <table className="stundenzettel-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
-              <tr className="border-b dark:border-zinc-700 text-sm text-zinc-500">
-                <th className="py-3 px-4 font-semibold">Mitarbeiter</th>
-                <th className="py-3 px-4 font-semibold">Typ</th>
-                <th className="py-3 px-4 font-semibold">Ist-Stunden</th>
-                <th className="py-3 px-4 font-semibold">Soll (ca.)</th>
-                <th className="py-3 px-4 font-semibold">Differenz</th>
-                <th className="py-3 px-4 font-semibold">Status</th>
-                <th className="py-3 px-4 font-semibold text-right">Aktion</th>
+              <tr style={{ borderBottom: '1px solid var(--glass-border)', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                <th style={{ padding: '1rem', textAlign: 'left' }}>Mitarbeiter</th>
+                <th style={{ padding: '1rem', textAlign: 'left' }}>Typ</th>
+                <th style={{ padding: '1rem', textAlign: 'center' }}>Ist-Stunden</th>
+                <th style={{ padding: '1rem', textAlign: 'center' }}>Soll (ca.)</th>
+                <th style={{ padding: '1rem', textAlign: 'center' }}>Differenz</th>
+                <th style={{ padding: '1rem', textAlign: 'center' }}>Status</th>
+                <th style={{ padding: '1rem', textAlign: 'right' }}>Aktion</th>
               </tr>
             </thead>
             <tbody>
@@ -169,30 +172,40 @@ export default function MonatsabschlussClient({ employees, company, currentUserI
                 const hasViolations = violations.some(v => v.employee.id === emp.id);
                 
                 return (
-                  <tr key={emp.id} className="border-b dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                    <td className="py-3 px-4 flex items-center gap-2">
+                  <tr key={emp.id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                    <td style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500 }}>
                       {emp.last_name}, {emp.first_name}
                       {hasViolations && (
-                        <span className="w-3 h-3 rounded-full bg-red-500" title="Verstöße gefunden"></span>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--danger)' }} title="Verstöße gefunden"></span>
                       )}
                     </td>
-                    <td className="py-3 px-4">{emp.employment_category}</td>
-                    <td className="py-3 px-4 font-medium">{stats.worked.toFixed(2)}h</td>
-                    <td className="py-3 px-4 text-zinc-500">{stats.target.toFixed(2)}h</td>
-                    <td className={`py-3 px-4 font-medium ${stats.overtime > 0 ? 'text-green-600' : stats.overtime < 0 ? 'text-red-500' : ''}`}>
+                    <td style={{ padding: '1rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{emp.employment_category}</td>
+                    <td style={{ padding: '1rem', textAlign: 'center', fontWeight: 600 }}>{stats.worked.toFixed(2)}h</td>
+                    <td style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>{stats.target.toFixed(2)}h</td>
+                    <td style={{ 
+                      padding: '1rem', 
+                      textAlign: 'center', 
+                      fontWeight: 700, 
+                      color: stats.overtime > 0 ? 'var(--success)' : stats.overtime < 0 ? 'var(--danger)' : 'var(--text-primary)' 
+                    }}>
                       {stats.overtime > 0 ? '+' : ''}{stats.overtime.toFixed(2)}h
                     </td>
-                    <td className="py-3 px-4">
+                    <td style={{ padding: '1rem', textAlign: 'center' }}>
                       {stats.balance ? (
-                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-semibold">Abgeschlossen</span>
+                        <span style={{ padding: '0.25rem 0.75rem', borderRadius: '1rem', fontSize: '0.75rem', fontWeight: 600, backgroundColor: 'rgba(34, 197, 94, 0.1)', color: 'var(--success)' }}>
+                          Abgeschlossen
+                        </span>
                       ) : (
-                        <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs font-semibold">Offen</span>
+                        <span style={{ padding: '0.25rem 0.75rem', borderRadius: '1rem', fontSize: '0.75rem', fontWeight: 600, backgroundColor: 'rgba(234, 179, 8, 0.1)', color: 'var(--warning)' }}>
+                          Offen
+                        </span>
                       )}
                     </td>
-                    <td className="py-3 px-4 text-right">
+                    <td style={{ padding: '1rem', textAlign: 'right' }}>
                       <button 
                         onClick={() => openModal(emp)}
-                        className="px-3 py-1.5 bg-zinc-900 text-white rounded text-sm hover:bg-zinc-800"
+                        className={stats.balance ? "btn btn-secondary glass" : "btn btn-primary"}
+                        style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
                       >
                         {stats.balance ? 'Bearbeiten' : 'Abschließen'}
                       </button>
@@ -206,43 +219,49 @@ export default function MonatsabschlussClient({ employees, company, currentUserI
       )}
 
       {isModalOpen && selectedEmployee && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-zinc-900 p-6 rounded-xl w-full max-w-md border dark:border-zinc-800">
-            <h3 className="text-lg font-bold mb-4">Monatsabschluss: {selectedEmployee.first_name} {selectedEmployee.last_name}</h3>
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, backdropFilter: 'blur(5px)' }}>
+          <div className="glass glass-card" style={{ padding: '2rem', width: '100%', maxWidth: '450px' }}>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', color: 'var(--text-primary)' }}>
+              Monatsabschluss: {selectedEmployee.first_name} {selectedEmployee.last_name}
+            </h3>
             
-            <div className="space-y-4">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <div>
-                <label className="block text-sm mb-1">Stunden in nächsten Monat übertragen (+/-)</label>
+                <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 600 }}>
+                  Stunden in nächsten Monat übertragen (+/-)
+                </label>
                 <input 
                   type="number" 
                   step="0.5"
                   value={transferHours} 
                   onChange={e => setTransferHours(parseFloat(e.target.value))}
-                  className="w-full border rounded px-3 py-2 bg-transparent dark:border-zinc-700"
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'var(--glass-bg)', color: 'var(--text-primary)' }}
                 />
               </div>
               <div>
-                <label className="block text-sm mb-1">Auszahlen / Abgelten (Stunden)</label>
+                <label style={{ display: 'block', fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 600 }}>
+                  Auszahlen / Abgelten (Stunden)
+                </label>
                 <input 
                   type="number" 
                   step="0.5"
                   value={payOutHours} 
                   onChange={e => setPayOutHours(parseFloat(e.target.value))}
-                  className="w-full border rounded px-3 py-2 bg-transparent dark:border-zinc-700"
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'var(--glass-bg)', color: 'var(--text-primary)' }}
                 />
               </div>
             </div>
 
-            <div className="flex gap-3 justify-end mt-6">
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '2.5rem' }}>
               <button 
                 onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 border rounded hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                className="btn btn-secondary glass"
               >
                 Abbrechen
               </button>
               <button 
                 onClick={handleSave}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                className="btn btn-primary"
               >
                 Speichern & Schließen
               </button>
