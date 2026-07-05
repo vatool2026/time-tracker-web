@@ -44,6 +44,9 @@ CREATE POLICY "Admins can delete rules for their company" ON public.push_notific
         SELECT company_id FROM public.profiles WHERE id = auth.uid() AND (role = 'COMPANY_ADMIN' OR role = 'ROOT')
     ));
 
+-- Enable the moddatetime extension if it doesn't exist
+CREATE EXTENSION IF NOT EXISTS moddatetime SCHEMA extensions;
+
 -- Add trigger for updated_at
 CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.push_notification_rules
   FOR EACH ROW EXECUTE PROCEDURE moddatetime (updated_at);
