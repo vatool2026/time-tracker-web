@@ -120,7 +120,6 @@ export default function MonatsabschlussClient({ employees, company, currentUserI
   }, [employees, timeEntries, categorySettings]);
 
   return (
-  return (
     <div className="glass glass-card" style={{ padding: '2rem' }}>
       
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', alignItems: 'flex-end' }}>
