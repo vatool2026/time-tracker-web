@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { logoutAction, updateSurchargeSettingsAction, updateCompanySettingsAction, updateUserPasswordAction, updateUserEmailAction } from '@/app/actions';
 import TimeTrackerCard from './TimeTrackerCard';
 import TimesheetTable from './TimesheetTable';
@@ -164,6 +165,7 @@ export default function DashboardContainer({
   qrCodes,
   companyHolidays
 }: DashboardContainerProps) {
+  const router = useRouter();
   const isAdmin = profile.role === 'COMPANY_ADMIN' || profile.role === 'ROOT';
   const [activeTab, setActiveTab] = useState<'employee' | 'admin'>(isAdmin ? 'admin' : 'employee');
   const [adminSubTab, setAdminSubTab] = useState<'overview' | 'employees' | 'surcharges' | 'absences' | 'company' | 'carryover' | 'overtime' | 'import' | 'reports' | 'compliance' | 'settings' | 'qrcodes' | 'vacation' | 'holidays'>('overview');
