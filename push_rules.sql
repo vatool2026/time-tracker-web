@@ -23,25 +23,25 @@ ALTER TABLE public.push_notification_rules ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view rules for their company" ON public.push_notification_rules
     FOR SELECT
     USING (company_id IN (
-        SELECT company_id FROM public.users WHERE id = auth.uid()
+        SELECT company_id FROM public.profiles WHERE id = auth.uid()
     ));
 
 CREATE POLICY "Admins can insert rules for their company" ON public.push_notification_rules
     FOR INSERT
     WITH CHECK (company_id IN (
-        SELECT company_id FROM public.users WHERE id = auth.uid() AND (role = 'COMPANY_ADMIN' OR role = 'ROOT')
+        SELECT company_id FROM public.profiles WHERE id = auth.uid() AND (role = 'COMPANY_ADMIN' OR role = 'ROOT')
     ));
 
 CREATE POLICY "Admins can update rules for their company" ON public.push_notification_rules
     FOR UPDATE
     USING (company_id IN (
-        SELECT company_id FROM public.users WHERE id = auth.uid() AND (role = 'COMPANY_ADMIN' OR role = 'ROOT')
+        SELECT company_id FROM public.profiles WHERE id = auth.uid() AND (role = 'COMPANY_ADMIN' OR role = 'ROOT')
     ));
 
 CREATE POLICY "Admins can delete rules for their company" ON public.push_notification_rules
     FOR DELETE
     USING (company_id IN (
-        SELECT company_id FROM public.users WHERE id = auth.uid() AND (role = 'COMPANY_ADMIN' OR role = 'ROOT')
+        SELECT company_id FROM public.profiles WHERE id = auth.uid() AND (role = 'COMPANY_ADMIN' OR role = 'ROOT')
     ));
 
 -- Add trigger for updated_at
