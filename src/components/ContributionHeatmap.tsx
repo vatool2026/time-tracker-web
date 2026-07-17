@@ -96,13 +96,14 @@ export default function ContributionHeatmap({ entries, year, surchargeSettings }
 
   for (let i = 0; i < daysInYear; i++) {
     const d = new Date(year, 0, i + 1);
-    const dateStr = d.toISOString().split('T')[0];
+    // Use local time instead of toISOString() to prevent timezone shifting
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const hours = days.get(dateStr) || 0;
     
     cells.push(
       <div 
         key={dateStr}
-        title={`${new Date(dateStr).toLocaleDateString('de-DE')}: ${hours.toFixed(1)} h`}
+        title={`${d.toLocaleDateString('de-DE')}: ${hours.toFixed(1)} h`}
         style={{ 
           width: '100%', 
           aspectRatio: '1/1',
