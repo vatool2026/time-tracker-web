@@ -91,7 +91,7 @@ export default function ContributionHeatmap({ entries, year, surchargeSettings }
   
   // push empty cells for padding
   for (let i = 0; i < startDayOfWeek; i++) {
-    cells.push(<div key={`empty-${i}`} style={{ width: '12px', height: '12px', borderRadius: '3px', visibility: 'hidden' }} />);
+    cells.push(<div key={`empty-${i}`} style={{ width: '100%', aspectRatio: '1/1', borderRadius: '4px', visibility: 'hidden' }} />);
   }
 
   for (let i = 0; i < daysInYear; i++) {
@@ -104,41 +104,44 @@ export default function ContributionHeatmap({ entries, year, surchargeSettings }
         key={dateStr}
         title={`${new Date(dateStr).toLocaleDateString('de-DE')}: ${hours.toFixed(1)} h`}
         style={{ 
-          width: '12px', 
-          height: '12px', 
-          borderRadius: '3px',
+          width: '100%', 
+          aspectRatio: '1/1',
+          borderRadius: '4px',
           backgroundColor: getColor(hours),
           transition: 'transform 0.1s',
-          cursor: 'pointer'
+          cursor: 'pointer',
+          minWidth: '12px'
         }}
-        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.2)'}
+        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
         onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
       />
     );
   }
 
   return (
-    <div className="glass glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', overflowX: 'auto', padding: '1.5rem' }}>
-      <h3 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--text-primary)' }}>Contribution Heatmap {year}</h3>
-      <div style={{ display: 'flex', gap: '0.5rem', minWidth: 'min-content' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', paddingTop: '16px', fontSize: '10px', color: 'var(--text-secondary)', paddingRight: '0.5rem' }}>
-          <span style={{ height: '12px', lineHeight: '12px' }}>So</span>
-          <span style={{ height: '12px', lineHeight: '12px' }}>Mo</span>
-          <span style={{ height: '12px', lineHeight: '12px' }}>Di</span>
-          <span style={{ height: '12px', lineHeight: '12px' }}>Mi</span>
-          <span style={{ height: '12px', lineHeight: '12px' }}>Do</span>
-          <span style={{ height: '12px', lineHeight: '12px' }}>Fr</span>
-          <span style={{ height: '12px', lineHeight: '12px' }}>Sa</span>
+    <div className="glass glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', overflowX: 'auto', padding: '1.5rem 2rem' }}>
+      <h3 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--text-primary)' }}>Arbeitsintensität {year}</h3>
+      <div style={{ display: 'flex', gap: '0.5rem', width: '100%', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '18px', fontSize: '0.75rem', color: 'var(--text-secondary)', paddingRight: '0.5rem', justifyContent: 'space-between' }}>
+          <span style={{ lineHeight: '1' }}>So</span>
+          <span style={{ lineHeight: '1' }}>Mo</span>
+          <span style={{ lineHeight: '1' }}>Di</span>
+          <span style={{ lineHeight: '1' }}>Mi</span>
+          <span style={{ lineHeight: '1' }}>Do</span>
+          <span style={{ lineHeight: '1' }}>Fr</span>
+          <span style={{ lineHeight: '1' }}>Sa</span>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <div style={{ display: 'flex', fontSize: '10px', color: 'var(--text-secondary)', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, maxWidth: '1000px' }}>
+          <div style={{ display: 'flex', fontSize: '0.85rem', color: 'var(--text-secondary)', justifyContent: 'space-between', paddingLeft: '0.5rem', paddingRight: '0.5rem' }}>
             <span>Jan</span><span>Feb</span><span>Mär</span><span>Apr</span><span>Mai</span><span>Jun</span><span>Jul</span><span>Aug</span><span>Sep</span><span>Okt</span><span>Nov</span><span>Dez</span>
           </div>
           <div style={{ 
             display: 'grid', 
-            gridTemplateRows: 'repeat(7, 12px)',
+            gridTemplateRows: 'repeat(7, 1fr)',
+            gridTemplateColumns: 'repeat(53, 1fr)',
             gridAutoFlow: 'column',
-            gap: '4px'
+            gap: '4px',
+            width: '100%'
           }}>
             {cells}
           </div>
