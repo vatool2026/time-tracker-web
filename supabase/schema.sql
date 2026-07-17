@@ -23,6 +23,12 @@ CREATE TABLE public.companies (
   feature_urlaub BOOLEAN DEFAULT false,
   feature_abwesenheit BOOLEAN DEFAULT false,
   feature_sonstiges BOOLEAN DEFAULT false,
+  address_street TEXT,
+  address_zip TEXT,
+  address_city TEXT,
+  latitude DECIMAL,
+  longitude DECIMAL,
+  geofence_radius_meters INTEGER DEFAULT 150,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 

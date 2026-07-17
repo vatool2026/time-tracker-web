@@ -6,6 +6,7 @@ import { calculateSurcharges } from '@/utils/surchargeCalculator';
 import { calculateComplianceViolations } from '@/utils/complianceCalculator';
 import { BarChart2, PieChart as PieChartIcon, CalendarDays, Clock, TrendingUp, TrendingDown, Calendar as CalendarIcon, Activity, Sunrise, Moon, Sun, Sunset, Trophy, Coffee, ShieldAlert, AlertTriangle, CheckCircle, Info } from 'lucide-react';
 import YearlyOverviewTable from './YearlyOverviewTable';
+import ContributionHeatmap from './ContributionHeatmap';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   ComposedChart, Line, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
@@ -674,6 +675,12 @@ export default function AnalyticsCharts({
               </ResponsiveContainer>
             </div>
           </div>
+
+          <ContributionHeatmap 
+            entries={allEntries} 
+            year={timeframe === 'last_year' ? currentYear - 1 : currentYear} 
+            surchargeSettings={surchargeSettings || null} 
+          />
 
           {/* Fun Facts Section */}
           <div style={{ marginTop: '1rem' }}>

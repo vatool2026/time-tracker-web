@@ -750,7 +750,11 @@ export async function updateCompanySettingsAction(
   name: string,
   billingPeriodType: string,
   billingPeriodStartDay: number,
-  state: string | null = null
+  state: string | null = null,
+  address_street: string | null = null,
+  address_zip: string | null = null,
+  address_city: string | null = null,
+  geofence_radius_meters: number = 150
 ): Promise<ActionResponse> {
   const supabase = await createClient();
 
@@ -768,6 +772,27 @@ export async function updateCompanySettingsAction(
     return { success: false, message: 'Keine Administratorrechte.' };
   }
 
+  let latitude: number | null = null;
+  let longitude: number | null = null;
+
+  if (address_street && address_zip && address_city) {
+    try {
+      const query = encodeURIComponent(`${address_street}, ${address_zip} ${address_city}`);
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`, {
+        headers: { 'User-Agent': 'TimeTrackerWeb/1.0' }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.length > 0) {
+          latitude = parseFloat(data[0].lat);
+          longitude = parseFloat(data[0].lon);
+        }
+      }
+    } catch (e) {
+      console.error('Geocoding error:', e);
+    }
+  }
+
   const { error } = await supabase
     .from('companies')
     .update({
@@ -775,6 +800,12 @@ export async function updateCompanySettingsAction(
       billing_period_type: billingPeriodType,
       billing_period_start_day: billingPeriodStartDay,
       state: state || null,
+      address_street,
+      address_zip,
+      address_city,
+      latitude,
+      longitude,
+      geofence_radius_meters
     })
     .eq('id', callerProfile.company_id);
 

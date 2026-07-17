@@ -133,6 +133,12 @@ interface Profile {
     feature_sonstiges?: boolean;
     feature_qr_tracking?: boolean;
     state?: string;
+    address_street?: string | null;
+    address_zip?: string | null;
+    address_city?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    geofence_radius_meters?: number;
   } | null;
 }
 
@@ -199,6 +205,12 @@ export default function DashboardContainer({
   const [billingPeriodType, setBillingPeriodType] = useState<string>(profile.companies?.billing_period_type || 'CALENDAR_MONTH');
   const [billingStartDay, setBillingStartDay] = useState<number>(profile.companies?.billing_period_start_day || 1);
   const [companyState, setCompanyState] = useState<string>(profile.companies?.state || '');
+  
+  // Geofence states
+  const [addressStreet, setAddressStreet] = useState<string>(profile.companies?.address_street || '');
+  const [addressZip, setAddressZip] = useState<string>(profile.companies?.address_zip || '');
+  const [addressCity, setAddressCity] = useState<string>(profile.companies?.address_city || '');
+  const [geofenceRadius, setGeofenceRadius] = useState<number>(profile.companies?.geofence_radius_meters || 150);
   
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -289,7 +301,16 @@ export default function DashboardContainer({
   const handleCompanyUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const res = await updateCompanySettingsAction(companyName, billingPeriodType, Number(billingStartDay), companyState);
+    const res = await updateCompanySettingsAction(
+      companyName, 
+      billingPeriodType, 
+      Number(billingStartDay), 
+      companyState,
+      addressStreet,
+      addressZip,
+      addressCity,
+      Number(geofenceRadius)
+    );
     setLoading(false);
 
     if (res.success) {
@@ -804,6 +825,11 @@ export default function DashboardContainer({
                 feature_abwesenheit={profile.companies?.feature_abwesenheit}
                 qrCodes={qrCodes}
                 feature_qr_tracking={profile.companies?.feature_qr_tracking}
+                companyLat={profile.companies?.latitude}
+                companyLng={profile.companies?.longitude}
+                geofenceRadius={profile.companies?.geofence_radius_meters}
+                companyAddressStreet={profile.companies?.address_street}
+                companyAddressCity={profile.companies?.address_city}
               />
             )}
             
@@ -1521,6 +1547,39 @@ export default function DashboardContainer({
                     <option value="SH">Schleswig-Holstein</option>
                     <option value="TH">Thüringen</option>
                   </select>
+                </div>
+
+                <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: 'var(--border-radius-md)', border: '1px solid var(--glass-border)' }}>
+                  <h4 style={{ fontSize: '1rem', marginBottom: '1rem' }}>Firmenstandort & Geofencing</h4>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+                    Wird für die automatische Einstempel-Erinnerung (Geofencing) verwendet.
+                  </p>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem', marginBottom: '1rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>Straße & Hausnummer</label>
+                      <input type="text" value={addressStreet} onChange={(e) => setAddressStreet(e.target.value)} className="input-field" placeholder="Musterstraße 1" disabled={loading} />
+                    </div>
+                  </div>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem', marginBottom: '1rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>PLZ</label>
+                      <input type="text" value={addressZip} onChange={(e) => setAddressZip(e.target.value)} className="input-field" placeholder="12345" disabled={loading} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>Stadt</label>
+                      <input type="text" value={addressCity} onChange={(e) => setAddressCity(e.target.value)} className="input-field" placeholder="Musterstadt" disabled={loading} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>Geofence Radius (Meter)</label>
+                    <input type="number" value={geofenceRadius} onChange={(e) => setGeofenceRadius(Number(e.target.value))} className="input-field" disabled={loading} />
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem', display: 'block' }}>
+                      Empfehlung: 100 - 200 Meter
+                    </span>
+                  </div>
                 </div>
 
                 <button type="submit" className="btn btn-primary" style={{ width: '100%', height: '46px', marginTop: '0.5rem' }} disabled={loading}>

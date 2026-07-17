@@ -20,9 +20,17 @@ interface TimeTrackerCardProps {
   feature_abwesenheit?: boolean;
   feature_qr_tracking?: boolean;
   qrCodes?: any[] | null;
+  companyLat?: number | null;
+  companyLng?: number | null;
+  geofenceRadius?: number;
+  companyAddressStreet?: string | null;
+  companyAddressCity?: string | null;
 }
 
-export default function TimeTrackerCard({ activeEntry, currentUserId, feature_urlaub = false, feature_abwesenheit = false, feature_qr_tracking = false, qrCodes = [] }: TimeTrackerCardProps) {
+export default function TimeTrackerCard({ 
+  activeEntry, currentUserId, feature_urlaub = false, feature_abwesenheit = false, feature_qr_tracking = false, qrCodes = [],
+  companyLat, companyLng, geofenceRadius = 150, companyAddressStreet, companyAddressCity
+}: TimeTrackerCardProps) {
   const [optimisticActiveEntry, setOptimisticActiveEntry] = useState<any>(null);
 
   useEffect(() => {
@@ -64,6 +72,8 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
   const [qrMenuOpen, setQrMenuOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [geofencePrompt, setGeofencePrompt] = useState<boolean>(false);
+  const [geofenceError, setGeofenceError] = useState<string | null>(null);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 768);
@@ -80,6 +90,56 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
   const [manualBreak, setManualBreak] = useState<number>(30);
 
   const [faviconState, setFaviconState] = useState<FaviconState>('default');
+
+  // Geofencing Logic
+  useEffect(() => {
+    if (typeof window === 'undefined' || !navigator.geolocation || !companyLat || !companyLng) return;
+    
+    // If already clocked in, no need to prompt
+    if (displayEntry) {
+      setGeofencePrompt(false);
+      return;
+    }
+
+    const deg2rad = (deg: number) => deg * (Math.PI/180);
+    const getDistanceFromLatLonInM = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+      const R = 6371e3; // Radius of the earth in m
+      const dLat = deg2rad(lat2-lat1);
+      const dLon = deg2rad(lon2-lon1); 
+      const a = 
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+        Math.sin(dLon/2) * Math.sin(dLon/2); 
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+      return R * c; // Distance in m
+    };
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const dist = getDistanceFromLatLonInM(
+          position.coords.latitude,
+          position.coords.longitude,
+          companyLat,
+          companyLng
+        );
+        if (dist <= geofenceRadius) {
+          setGeofencePrompt(true);
+        } else {
+          setGeofencePrompt(false);
+        }
+        setGeofenceError(null);
+      },
+      (error) => {
+        console.error('Geolocation error:', error);
+        if (error.code === error.PERMISSION_DENIED) {
+          setGeofenceError('Standortzugriff verweigert. Automatischer Einstempel-Hinweis ist deaktiviert.');
+        }
+      },
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [displayEntry, companyLat, companyLng, geofenceRadius]);
 
   // Timer for active work and active break
   useEffect(() => {
@@ -375,6 +435,47 @@ export default function TimeTrackerCard({ activeEntry, currentUserId, feature_ur
           }}>
             <AlertCircle size={18} style={{ flexShrink: 0 }} />
             <span>{breakWarning}</span>
+          </div>
+        )}
+
+        {/* Geofence Prompt */}
+        {geofencePrompt && !displayEntry && (
+          <div className="glass" style={{
+            padding: '0.75rem 1rem',
+            borderRadius: 'var(--border-radius-sm)',
+            width: '100%',
+            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+            border: '1px solid var(--success)',
+            color: 'var(--success)',
+            fontSize: '0.9rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            marginBottom: '0.5rem',
+            animation: 'pulse 2s infinite'
+          }}>
+            <LogIn size={18} style={{ flexShrink: 0 }} />
+            <span>Sie sind am Firmenstandort angekommen! Vergessen Sie nicht einzustempeln.</span>
+          </div>
+        )}
+
+        {/* Geofence Error Message */}
+        {geofenceError && !displayEntry && (
+          <div className="glass" style={{
+            padding: '0.75rem 1rem',
+            borderRadius: 'var(--border-radius-sm)',
+            width: '100%',
+            backgroundColor: 'rgba(239, 68, 68, 0.05)',
+            border: '1px solid rgba(239, 68, 68, 0.2)',
+            color: 'var(--text-secondary)',
+            fontSize: '0.8rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            marginBottom: '0.5rem'
+          }}>
+            <AlertCircle size={16} style={{ flexShrink: 0 }} />
+            <span>{geofenceError}</span>
           </div>
         )}
 

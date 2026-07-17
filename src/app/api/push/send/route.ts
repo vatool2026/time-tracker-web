@@ -85,11 +85,19 @@ export async function GET(request: Request) {
         }
       } else {
         // Fallback to default rules if no custom rules exist
+        // 12 Hours warning
+        if (totalSeconds >= 12 * 3600 && totalSeconds < 12 * 3600 + 300) {
+          notificationMessage = 'Achtung: Du bist seit 12 Stunden eingeloggt. Hast du vergessen dich auszustempeln?';
+        }
         // 9 Hours warning
-        if (totalSeconds >= 9 * 3600 && totalSeconds < 9 * 3600 + 300 && totalBreakMinutes < 45) {
+        else if (totalSeconds >= 9 * 3600 && totalSeconds < 9 * 3600 + 300 && totalBreakMinutes < 45) {
           notificationMessage = 'Achtung: Sie arbeiten bereits 9 Stunden. Eine Pause von mind. 45 Min. ist vorgeschrieben!';
         } else if (totalSeconds >= 8.75 * 3600 && totalSeconds < 8.75 * 3600 + 300 && totalBreakMinutes < 45) {
           notificationMessage = 'Hinweis: Nach 9 Std. Arbeitszeit sind gesetzlich mind. 45 Min. Pause vorgeschrieben.';
+        }
+        // 8 Hours warning
+        else if (totalSeconds >= 8 * 3600 && totalSeconds < 8 * 3600 + 300) {
+          notificationMessage = 'Hinweis: Du arbeitest bereits 8 Stunden. Vergiss nicht, dich auszustempeln!';
         }
         // 6 Hours warning
         else if (totalSeconds >= 6 * 3600 && totalSeconds < 6 * 3600 + 300 && totalBreakMinutes < 30) {

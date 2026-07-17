@@ -103,15 +103,34 @@ export function OfflineSyncManager() {
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-yellow-500/90 text-white p-2 text-sm flex items-center justify-center gap-2 z-50 animate-in slide-in-from-bottom-2">
+    <div style={{
+      position: 'fixed',
+      bottom: '20px',
+      right: '20px',
+      zIndex: 9999,
+      backgroundColor: isOffline ? 'var(--danger)' : 'var(--warning)',
+      color: '#fff',
+      padding: '0.75rem 1rem',
+      borderRadius: '8px',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.75rem',
+      fontSize: '0.9rem',
+      fontWeight: 500,
+    }}>
       {isSyncing ? (
         <>
-          <RefreshCw className="h-4 w-4 animate-spin" />
+          <RefreshCw className="spin" size={18} />
           <span>Synchronisiere {queueLength} ausstehende Änderungen...</span>
+          <style dangerouslySetInnerHTML={{__html: `
+            @keyframes spin { 100% { transform: rotate(360deg); } }
+            .spin { animation: spin 1s linear infinite; }
+          `}} />
         </>
       ) : (
         <>
-          <WifiOff className="h-4 w-4" />
+          <WifiOff size={18} />
           <span>Sie sind offline. {queueLength} {queueLength === 1 ? 'Änderung' : 'Änderungen'} gespeichert.</span>
         </>
       )}
