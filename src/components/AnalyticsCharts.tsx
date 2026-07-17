@@ -192,6 +192,9 @@ export default function AnalyticsCharts({
 
   const chartData = [];
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   if (groupByMonth) {
     // Group by month
     const iterDate = new Date(periodStart.getFullYear(), periodStart.getMonth(), 1);
@@ -212,13 +215,16 @@ export default function AnalyticsCharts({
         if (dayDate > periodEnd || dayDate < periodStart) continue;
 
         const dateStr = `${y}-${(m + 1).toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
-        const isPastOrToday = dayDate <= now;
+        const isPastOrToday = dayDate <= today;
+        const dayEntries = entries.filter(e => e.entry_date === dateStr);
+
+        if (!isPastOrToday && dayEntries.length === 0) continue;
 
         let target = getTargetHoursForDate(dayDate);
         let actual = 0;
 
-        const entry = entries.find(e => e.entry_date === dateStr);
-        if (entry) {
+        if (dayEntries.length > 0) {
+          const entry = dayEntries[0];
           let isDummy = false;
           if (entry.absence_code) {
             const codeObj = absenceCodes?.find(c => c.code === entry.absence_code);
@@ -232,24 +238,46 @@ export default function AnalyticsCharts({
             }
           }
           
-          if (!isDummy && entry.end_time) {
-            const surch = calculateSurcharges(
-              entry.entry_date,
-              entry.start_time,
-              entry.end_time,
-              entry.break_minutes || 0,
-              surchSet
-            );
-            actual = surch.workedHours;
-          }
+          dayEntries.forEach(e => {
+            if (!isDummy && e.end_time) {
+              const surch = calculateSurcharges(
+                e.entry_date,
+                e.start_time,
+                e.end_time,
+                e.break_minutes || 0,
+                surchSet
+              );
+              actual += surch.workedHoursDay1;
+            }
+          });
         }
 
-        if (isPastOrToday) {
-          monthTarget += target;
-          monthActual += actual;
-          totalTargetHours += target;
-          totalWorkedHours += actual;
-        }
+        // Add hours from previous day's shift if it spanned midnight
+        const prevDate = new Date(dayDate);
+        prevDate.setDate(prevDate.getDate() - 1);
+        const y2 = prevDate.getFullYear();
+        const m2 = prevDate.getMonth();
+        const d2 = prevDate.getDate();
+        const yesterdayStr = `${y2}-${(m2 + 1).toString().padStart(2, '0')}-${d2.toString().padStart(2, '0')}`;
+        const yesterdayEntries = entries.filter(e => e.entry_date === yesterdayStr);
+        
+        yesterdayEntries.forEach(e => {
+            if (e.end_time) {
+              const surch = calculateSurcharges(
+                e.entry_date,
+                e.start_time,
+                e.end_time,
+                e.break_minutes || 0,
+                surchSet
+              );
+              actual += surch.workedHoursDay2;
+            }
+        });
+
+        monthTarget += target;
+        monthActual += actual;
+        totalTargetHours += target;
+        totalWorkedHours += actual;
       }
 
       chartData.push({
@@ -271,13 +299,19 @@ export default function AnalyticsCharts({
       const dateStr = `${yStr}-${mStr}-${dStr}`;
       const dayNum = iterDate.getDate();
       
-      const isPastOrToday = iterDate <= now;
-      
+      const isPastOrToday = iterDate <= today;
+      const dayEntries = entries.filter(e => e.entry_date === dateStr);
+
+      if (!isPastOrToday && dayEntries.length === 0) {
+        iterDate.setDate(iterDate.getDate() + 1);
+        continue;
+      }
+
       let target = getTargetHoursForDate(iterDate);
       let actual = 0;
 
-      const entry = entries.find(e => e.entry_date === dateStr);
-      if (entry) {
+      if (dayEntries.length > 0) {
+        const entry = dayEntries[0];
         let isDummy = false;
         if (entry.absence_code) {
           const codeObj = absenceCodes?.find(c => c.code === entry.absence_code);
@@ -291,22 +325,44 @@ export default function AnalyticsCharts({
           }
         }
         
-        if (!isDummy && entry.end_time) {
-          const surch = calculateSurcharges(
-            entry.entry_date,
-            entry.start_time,
-            entry.end_time,
-            entry.break_minutes || 0,
-            surchSet
-          );
-          actual = surch.workedHours;
-        }
+        dayEntries.forEach(e => {
+          if (!isDummy && e.end_time) {
+            const surch = calculateSurcharges(
+              e.entry_date,
+              e.start_time,
+              e.end_time,
+              e.break_minutes || 0,
+              surchSet
+            );
+            actual += surch.workedHoursDay1;
+          }
+        });
       }
 
-      if (isPastOrToday) {
-        totalTargetHours += target;
-        totalWorkedHours += actual;
-      }
+      // Add hours from previous day's shift if it spanned midnight
+      const prevDate = new Date(iterDate);
+      prevDate.setDate(prevDate.getDate() - 1);
+      const y2 = prevDate.getFullYear();
+      const m2 = prevDate.getMonth();
+      const d2 = prevDate.getDate();
+      const yesterdayStr = `${y2}-${(m2 + 1).toString().padStart(2, '0')}-${d2.toString().padStart(2, '0')}`;
+      const yesterdayEntries = entries.filter(e => e.entry_date === yesterdayStr);
+      
+      yesterdayEntries.forEach(e => {
+          if (e.end_time) {
+            const surch = calculateSurcharges(
+              e.entry_date,
+              e.start_time,
+              e.end_time,
+              e.break_minutes || 0,
+              surchSet
+            );
+            actual += surch.workedHoursDay2;
+          }
+      });
+
+      totalTargetHours += target;
+      totalWorkedHours += actual;
 
       chartData.push({
         date: `${dayNum}.`,
@@ -343,38 +399,59 @@ export default function AnalyticsCharts({
 
   const getDayName = (d: number) => ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][d];
 
-  periodEntries.forEach(entry => {
-    if (entry.break_minutes) totalBreakMinutes += entry.break_minutes;
+  const entriesByDate: Record<string, TimeEntry[]> = {};
+  periodEntries.forEach(e => {
+    if (!entriesByDate[e.entry_date]) entriesByDate[e.entry_date] = [];
+    entriesByDate[e.entry_date].push(e);
+  });
 
-    if (entry.start_time) {
-      const [h, m] = entry.start_time.split(':').map(Number);
+  Object.entries(entriesByDate).forEach(([dateStr, dayEntries]) => {
+    let dayWorkedHours = 0;
+    let hasAbsence = false;
+    let earliestStart = '23:59:00';
+    let latestEnd = '00:00:00';
+    
+    dayEntries.forEach(entry => {
+      if (entry.absence_code) hasAbsence = true;
+      if (entry.break_minutes) totalBreakMinutes += entry.break_minutes;
+
+      if (entry.start_time && entry.start_time < earliestStart) earliestStart = entry.start_time;
+      if (entry.end_time && entry.end_time > latestEnd) latestEnd = entry.end_time;
+
+      if (!entry.absence_code && entry.end_time) {
+        const surch = calculateSurcharges(
+          entry.entry_date,
+          entry.start_time,
+          entry.end_time,
+          entry.break_minutes || 0,
+          surchSet
+        );
+        dayWorkedHours += surch.workedHours;
+      }
+    });
+
+    if (earliestStart !== '23:59:00') {
+      const [h, m] = earliestStart.split(':').map(Number);
       totalStartTimeMinutes += h * 60 + m;
       startTimeCount++;
     }
-    if (entry.end_time) {
-      const [h, m] = entry.end_time.split(':').map(Number);
+    
+    if (latestEnd !== '00:00:00') {
+      const [h, m] = latestEnd.split(':').map(Number);
       totalEndTimeMinutes += h * 60 + m;
       endTimeCount++;
     }
 
-    if (!entry.absence_code && entry.end_time) {
-      const surch = calculateSurcharges(
-        entry.entry_date,
-        entry.start_time,
-        entry.end_time,
-        entry.break_minutes || 0,
-        surchSet
-      );
-      
-      const dayName = getDayName(new Date(entry.entry_date).getDay());
+    if (!hasAbsence && dayWorkedHours > 0) {
+      const dayName = getDayName(new Date(dateStr).getDay());
       if (weekdayHours[dayName as keyof typeof weekdayHours]) {
-        weekdayHours[dayName as keyof typeof weekdayHours].total += surch.workedHours;
+        weekdayHours[dayName as keyof typeof weekdayHours].total += dayWorkedHours;
         weekdayHours[dayName as keyof typeof weekdayHours].count++;
       }
 
-      if (surch.workedHours > maxWorkedHours) {
-        maxWorkedHours = surch.workedHours;
-        maxWorkedDayStr = new Date(entry.entry_date).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
+      if (dayWorkedHours > maxWorkedHours) {
+        maxWorkedHours = dayWorkedHours;
+        maxWorkedDayStr = new Date(dateStr).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
       }
     }
   });
