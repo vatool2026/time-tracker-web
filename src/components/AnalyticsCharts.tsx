@@ -677,7 +677,7 @@ export default function AnalyticsCharts({
           </div>
 
           <ContributionHeatmap 
-            entries={allEntries} 
+            entries={entries} 
             year={timeframe === 'last_year' ? currentYear - 1 : currentYear} 
             surchargeSettings={surchargeSettings || null} 
           />
