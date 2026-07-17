@@ -218,8 +218,6 @@ export default function AnalyticsCharts({
         const isPastOrToday = dayDate <= today;
         const dayEntries = entries.filter(e => e.entry_date === dateStr);
 
-        if (!isPastOrToday && dayEntries.length === 0) continue;
-
         let target = getTargetHoursForDate(dayDate);
         let actual = 0;
 
@@ -274,10 +272,13 @@ export default function AnalyticsCharts({
             }
         });
 
+        if (isPastOrToday || dayEntries.length > 0) {
+          totalTargetHours += target;
+          totalWorkedHours += actual;
+        }
+
         monthTarget += target;
         monthActual += actual;
-        totalTargetHours += target;
-        totalWorkedHours += actual;
       }
 
       chartData.push({
@@ -301,11 +302,6 @@ export default function AnalyticsCharts({
       
       const isPastOrToday = iterDate <= today;
       const dayEntries = entries.filter(e => e.entry_date === dateStr);
-
-      if (!isPastOrToday && dayEntries.length === 0) {
-        iterDate.setDate(iterDate.getDate() + 1);
-        continue;
-      }
 
       let target = getTargetHoursForDate(iterDate);
       let actual = 0;
@@ -361,8 +357,10 @@ export default function AnalyticsCharts({
           }
       });
 
-      totalTargetHours += target;
-      totalWorkedHours += actual;
+      if (isPastOrToday || dayEntries.length > 0) {
+        totalTargetHours += target;
+        totalWorkedHours += actual;
+      }
 
       chartData.push({
         date: `${dayNum}.`,
