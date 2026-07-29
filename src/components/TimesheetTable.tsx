@@ -145,7 +145,7 @@ export default function TimesheetTable({
         .eq('user_id', currentUserId)
         .eq('year', prevYear)
         .eq('month', prevMonth)
-        .single();
+        .maybeSingle();
       
       if (data) setMonthlyBalance(data);
       else setMonthlyBalance(null);
