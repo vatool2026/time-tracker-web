@@ -11,7 +11,8 @@ export interface SurchargeSettings {
 
 export interface SurchargeInterval {
   text: string;
-  hours: number;
+  rawHours: number;
+  effectiveHours: number;
 }
 
 export interface CalculatedSurcharges {
