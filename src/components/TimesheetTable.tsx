@@ -995,18 +995,18 @@ export default function TimesheetTable({
                                <div className="flex-between">
                                  <span style={{ color: 'var(--text-secondary)' }}>Zuschläge:</span>
                                  <span style={{ textAlign: 'right' }}>
-                                   {nightH > 0 ? `${nightH}h 🌙 ` : ''}
+                                   {nightH > 0 ? `${nightH.toFixed(2)}h 🌙 ` : ''}
                                    {(sundayH > 0 || holidayH > 0) ? `${(sundayH + holidayH).toFixed(2)}h 🎉` : ''}
                                  </span>
                                </div>
                                {dayEntriesList.map((entry, eIdx) => (
                                  <React.Fragment key={`mob-ext-${eIdx}`}>
-                                   {entry.entry_nightH > 0 && entry.nightIntervals && entry.nightIntervals.map((inv: any, i: number) => (
+                                   {!entry.isSplitPart2 && entry.nightIntervals && entry.nightIntervals.length > 0 && entry.nightIntervals.map((inv: any, i: number) => (
                                      <div key={`m-n-${eIdx}-${i}`} style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', textAlign: 'right' }}>
                                        ↳ {inv.text} Uhr ({inv.rawHours !== inv.effectiveHours ? `${inv.rawHours}h - Pause = ${inv.effectiveHours}h` : `${inv.effectiveHours}h`}) 🌙
                                      </div>
                                    ))}
-                                   {(entry.entry_sundayH > 0 || entry.entry_holidayH > 0) && [
+                                   {!entry.isSplitPart2 && (entry.sundayIntervals?.length > 0 || entry.holidayIntervals?.length > 0) && [
                                      ...(entry.sundayIntervals || []),
                                      ...(entry.holidayIntervals || [])
                                    ].map((inv: any, i: number) => (
@@ -1132,10 +1132,10 @@ export default function TimesheetTable({
                       }}>
                         <td colSpan={8} style={{ padding: '0.5rem 0.5rem 0.5rem 2.5rem' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                            {eNight > 0 && entry.nightIntervals && entry.nightIntervals.map((inv: any, i: number) => (
+                            {!entry.isSplitPart2 && entry.nightIntervals && entry.nightIntervals.length > 0 && entry.nightIntervals.map((inv: any, i: number) => (
                               <div key={`n-${i}`}>🌙 Nachtzuschlag von {inv.text} Uhr ({inv.rawHours !== inv.effectiveHours ? `${inv.rawHours} Std. abzgl. Pause = ${inv.effectiveHours} Std.` : `${inv.effectiveHours} Std.`})</div>
                             ))}
-                            {(eSun > 0 || eHol > 0) && [
+                            {!entry.isSplitPart2 && (entry.sundayIntervals?.length > 0 || entry.holidayIntervals?.length > 0) && [
                               ...(entry.sundayIntervals || []),
                               ...(entry.holidayIntervals || [])
                             ].map((inv: any, i: number) => (
