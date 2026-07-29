@@ -289,19 +289,6 @@ export default function TimesheetTable({
       
       const dayEntries = activeEntriesByDate.get(dateStr) || [];
       
-      const prevD = new Date(d);
-      prevD.setDate(prevD.getDate() - 1);
-      const prevDateStr = formatLocalDate(prevD);
-      const prevEntries = activeEntriesByDate.get(prevDateStr) || [];
-      const spilloverEntries = prevEntries.filter(e => e.end_time && e.end_time < e.start_time);
-      
-      if (spilloverEntries.length > 0) {
-        spilloverEntries.forEach(entry => {
-          const surch = calculateSurcharges(entry.entry_date, entry.start_time, entry.end_time, entry.break_minutes || 0, surchSet, undefined, undefined, entry.break_logs);
-          dayWorked += surch.workedHoursDay2;
-        });
-      }
-      
       if (dayEntries.length > 0) {
         let codeFactor = 1.0;
         const codeStr = dayEntries[0].absence_code;
@@ -314,7 +301,7 @@ export default function TimesheetTable({
         dayEntries.forEach(entry => {
           if (!entry.absence_code && entry.end_time) {
             const surch = calculateSurcharges(entry.entry_date, entry.start_time, entry.end_time, entry.break_minutes || 0, surchSet, undefined, undefined, entry.break_logs);
-            dayWorked += surch.workedHoursDay1;
+            dayWorked += surch.workedHoursDay1 + surch.workedHoursDay2;
           }
         });
       }
@@ -355,16 +342,6 @@ export default function TimesheetTable({
     const activeEntriesList = allEntriesList.filter(e => !e.deleted_at);
     const deletedEntriesList = isAdmin ? allEntriesList.filter(e => e.deleted_at) : [];
     
-    // 2. Get active spillover entries from the previous day
-    const prevDay = new Date(day.getTime());
-    prevDay.setDate(prevDay.getDate() - 1);
-    const prevDayEntries = getEntriesForDate(prevDay);
-    const activePrevDayEntries = prevDayEntries.filter(e => !e.deleted_at);
-    const spilloverEntries = activePrevDayEntries.filter(e => {
-      if (!e.end_time) return false;
-      return e.end_time < e.start_time;
-    });
-
     let targetHours = getTargetHoursForDate(day);
     let actualHours = 0;
     let overtime = 0;
@@ -381,39 +358,6 @@ export default function TimesheetTable({
     const isWeekend = day.getDay() === 0 || day.getDay() === 6;
     const dayEntriesList: any[] = [];
 
-    if (spilloverEntries.length > 0) {
-      spilloverEntries.forEach(entry => {
-        const surch = calculateSurcharges(
-          entry.entry_date,
-          entry.start_time,
-          entry.end_time,
-          entry.break_minutes || 0,
-          surchSet,
-          undefined,
-          undefined,
-          entry.break_logs
-        );
-        actualHours += surch.workedHoursDay2;
-        nightH += surch.nightHoursDay2;
-        sundayH += surch.sundayHoursDay2;
-        holidayH += surch.holidayHoursDay2;
-        
-        dayEntriesList.push({
-          ...entry,
-          original_id: entry.id,
-          id: entry.id + '-spillover',
-          start_time: '00:00:00', // virtual start for day 2
-          original_start_time: entry.start_time,
-          isSpillover: true,
-          entry_actual_hours: surch.workedHoursDay2,
-          entry_break_minutes: 0,
-          entry_nightH: surch.nightHoursDay2,
-          entry_sundayH: surch.sundayHoursDay2,
-          entry_holidayH: surch.holidayHoursDay2
-        });
-      });
-    }
-
     if (activeEntriesList.length > 0) {
       let codeFactor = 1.0;
       let dayHasAbsenceCode = false;
@@ -423,7 +367,7 @@ export default function TimesheetTable({
         const dayCodeObj = absenceCodes.find(c => c.code === codeStr);
         if (dayCodeObj) {
           codeFactor = dayCodeObj.factor;
-          displayStatus = `✨ ${dayCodeObj.name} (${dayCodeObj.code})`;
+          displayStatus = `✨ ${dayCodeObj.name}`;
           dayHasAbsenceCode = true;
           if (codeStr === 'U') totalVacationDays++;
           if (codeStr === 'K') totalSickDays++;
@@ -453,28 +397,65 @@ export default function TimesheetTable({
             undefined,
             entry.break_logs
           );
-          actualHours += surch.workedHoursDay1;
-          nightH += surch.nightHoursDay1;
-          sundayH += surch.sundayHoursDay1;
-          holidayH += surch.holidayHoursDay1;
+          const totalWorkedForEntry = surch.workedHoursDay1 + surch.workedHoursDay2;
+          const totalNightForEntry = surch.nightHoursDay1 + surch.nightHoursDay2;
+          const totalSunForEntry = surch.sundayHoursDay1 + surch.sundayHoursDay2;
+          const totalHolForEntry = surch.holidayHoursDay1 + surch.holidayHoursDay2;
+
+          actualHours += totalWorkedForEntry;
+          nightH += totalNightForEntry;
+          sundayH += totalSunForEntry;
+          holidayH += totalHolForEntry;
           totalBreak += entry.break_minutes || 0;
 
-          let effEnd = entry.end_time;
-          if (entry.end_time < entry.start_time) {
-            effEnd = '24:00:00'; // virtual end for day 1
+          if (entry.end_time >= entry.start_time) {
+            dayEntriesList.push({
+              ...entry,
+              original_id: entry.id,
+              original_end_time: entry.end_time,
+              entry_actual_hours: totalWorkedForEntry,
+              entry_break_minutes: entry.break_minutes || 0,
+              entry_nightH: totalNightForEntry,
+              entry_sundayH: totalSunForEntry,
+              entry_holidayH: totalHolForEntry,
+              nightIntervals: surch.nightIntervals,
+              sundayIntervals: surch.sundayIntervals,
+              holidayIntervals: surch.holidayIntervals
+            });
+          } else {
+            // Spillover: push two parts so they appear in sub-rows
+            dayEntriesList.push({
+              ...entry,
+              original_id: entry.id,
+              end_time: '24:00:00',
+              original_end_time: entry.end_time,
+              entry_actual_hours: surch.workedHoursDay1,
+              entry_break_minutes: entry.break_minutes || 0,
+              entry_nightH: surch.nightHoursDay1,
+              entry_sundayH: surch.sundayHoursDay1,
+              entry_holidayH: surch.holidayHoursDay1,
+              nightIntervals: surch.nightIntervals,
+              sundayIntervals: surch.sundayIntervals,
+              holidayIntervals: surch.holidayIntervals,
+              isSplitPart1: true
+            });
+            dayEntriesList.push({
+              ...entry,
+              id: entry.id + '-part2',
+              original_id: entry.id,
+              start_time: '00:00:00',
+              original_start_time: entry.start_time,
+              entry_actual_hours: surch.workedHoursDay2,
+              entry_break_minutes: 0,
+              entry_nightH: surch.nightHoursDay2,
+              entry_sundayH: surch.sundayHoursDay2,
+              entry_holidayH: surch.holidayHoursDay2,
+              nightIntervals: surch.nightIntervals,
+              sundayIntervals: surch.sundayIntervals,
+              holidayIntervals: surch.holidayIntervals,
+              isSplitPart2: true
+            });
           }
-
-          dayEntriesList.push({
-            ...entry,
-            original_id: entry.id,
-            end_time: effEnd,
-            original_end_time: entry.end_time,
-            entry_actual_hours: surch.workedHoursDay1,
-            entry_break_minutes: entry.break_minutes || 0,
-            entry_nightH: surch.nightHoursDay1,
-            entry_sundayH: surch.sundayHoursDay1,
-            entry_holidayH: surch.holidayHoursDay1
-          });
         } else {
           displayStatus = '🕒 Aktiv...';
           dayEntriesList.push({ ...entry, entry_actual_hours: 0, entry_break_minutes: 0 });
@@ -523,16 +504,11 @@ export default function TimesheetTable({
         
       const reasons = dayEntriesList.filter(e => !e.deleted_at).map(e => e.edit_reason).filter(Boolean);
       
-      let customStatus = '';
-      if (dayEntriesList.length > 1 && nonDummy.length > 0) {
-        customStatus = `${nonDummy.length} Einträge`;
-      }
-      
       const allNotes = notes.length > 0 ? notes.join(' | ') : '';
-      const allReasons = reasons.length > 0 ? `[Änderung: ${reasons.join(', ')}]` : '';
+      const allReasons = reasons.length > 0 ? '✏️' : '';
       const deletedInfo = deletedEntriesList.length > 0 ? `[Gelöscht: ${deletedEntriesList.map(e => e.delete_reason || 'Kein Grund').join(', ')}]` : '';
       
-      const parts = [customStatus, allNotes, allReasons, deletedInfo].filter(Boolean);
+      const parts = [allNotes, allReasons, deletedInfo].filter(Boolean);
       if (!displayStatus) displayStatus = parts.join(' | ');
       else if (parts.length > 0) displayStatus += ' | ' + parts.join(' | ');
     } else {
@@ -559,6 +535,7 @@ export default function TimesheetTable({
     return {
       day,
       dayEntriesList,
+      activeEntriesList,
       targetHours,
       actualHours,
       overtime,
@@ -810,26 +787,27 @@ export default function TimesheetTable({
         <table className="stundenzettel-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--glass-border)', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-              <th style={{ padding: '0.75rem 0.5rem', textAlign: 'left' }}>Datum</th>
-              <th className="hidden-mobile" style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>Beginn</th>
-              <th className="hidden-mobile" style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>Ende</th>
+              <th style={{ padding: '0.75rem 0.5rem', textAlign: 'left', width: '130px' }}>Datum</th>
+              <th style={{ padding: '0.75rem 0.5rem', textAlign: 'center', width: '40px' }}></th>
+              <th className="hidden-mobile" style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>Erfasste Zeiten</th>
               <th className="hidden-mobile" style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>Pause</th>
-              <th style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>Ist-Std.</th>
-              <th style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>Soll-Std.</th>
+              <th style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>Ist / Soll Std.</th>
               <th className="hidden-mobile" style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>Differenz</th>
-              <th className="hidden-mobile" style={{ padding: '0.75rem 0.5rem', textAlign: 'center', width: '80px' }}>Kürzel</th>
-              <th className="hidden-mobile" style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>Zuschläge</th>
-              <th className="hidden-mobile" style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>Notiz / Status</th>
+              <th className="hidden-mobile" style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>Kürzel</th>
+              <th className="hidden-mobile" style={{ padding: '0.75rem 0.5rem', textAlign: 'left', minWidth: '200px' }}>Notiz / Status</th>
               <th className="hidden-mobile" style={{ padding: '0.75rem 0.5rem', textAlign: 'center', width: '60px' }}>Aktionen</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ day, dayEntriesList, targetHours, actualHours, overtime, nightH, sundayH, holidayH, displayStatus, holidayName, startTime, endTime, totalBreak, isAbsence }, idx) => {
+            {rows.map(({ day, dayEntriesList, activeEntriesList, targetHours, actualHours, overtime, nightH, sundayH, holidayH, displayStatus, holidayName, startTime, endTime, totalBreak, isAbsence }, idx) => {
               const dayOfWeek = day.getDay();
               const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
               const localDayStrFormatted = formatLocalDate(day);
               const localDayStr = `${weekdays[dayOfWeek]}. ${String(day.getDate()).padStart(2, '0')}.${String(day.getMonth() + 1).padStart(2, '0')}`;
               
+              const sortedRaw = [...activeEntriesList].sort((a,b) => a.start_time.localeCompare(b.start_time));
+              const nonDummyRaw = sortedRaw.filter(e => !(e.start_time === '00:00:00' && e.end_time === '00:00:00'));
+
               // Highlight style for weekends & holidays
               let rowBg = 'transparent';
               if (holidayName) {
@@ -869,24 +847,39 @@ export default function TimesheetTable({
                     <td style={{ padding: '0.75rem 0.5rem', fontWeight: 500, whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <span style={{ display: 'flex', alignItems: 'center', color: 'var(--accent-primary)', minWidth: '16px' }}>
-                          {(hasMultipleEntries || true) && (
-                            isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />
-                          )}
+                          {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                         </span>
                         <div>
                           {localDayStr} {holidayName && <span style={{ fontSize: '0.7rem', color: 'var(--info)', display: 'block' }}>{holidayName}</span>}
                         </div>
                       </div>
                     </td>
-                    
-                    {/* Start Time */}
-                    <td className="hidden-mobile" style={{ padding: '0.75rem 0.5rem', textAlign: 'center', color: isAbsence ? 'var(--text-secondary)' : 'inherit' }}>
-                      {isAbsence ? '—' : (startTime ? startTime.slice(0, 5) : '—')}
+
+                    {/* Icons (Zuschläge) */}
+                    <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
+                      {(nightH > 0 || sundayH > 0 || holidayH > 0) ? (
+                        <div style={{ display: 'flex', gap: '0.25rem', justifyContent: 'center' }}>
+                          {nightH > 0 && <span title={`Nachtschicht`}>🌙</span>}
+                          {(sundayH > 0 || holidayH > 0) && <span title={`Sonn-/Feiertag`}>🎉</span>}
+                        </div>
+                      ) : null}
                     </td>
                     
-                    {/* End Time */}
+                    {/* Erfasste Zeiten */}
                     <td className="hidden-mobile" style={{ padding: '0.75rem 0.5rem', textAlign: 'center', color: isAbsence ? 'var(--text-secondary)' : 'inherit' }}>
-                      {isAbsence ? '—' : (endTime ? endTime.slice(0, 5) : '—')}
+                      {isAbsence ? '—' : (
+                        nonDummyRaw.length > 0 ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', alignItems: 'center' }}>
+                            {nonDummyRaw.map((e, i) => {
+                              return (
+                                <span key={i} style={{ whiteSpace: 'nowrap' }}>
+                                  {e.start_time?.slice(0,5)} - {e.end_time ? e.end_time.slice(0,5) : 'Offen'}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        ) : '—'
+                      )}
                     </td>
                     
                     {/* Break Minutes */}
@@ -894,14 +887,15 @@ export default function TimesheetTable({
                       {isAbsence || dayEntriesList.length === 0 ? '—' : `${totalBreak}m`}
                     </td>
                     
-                    {/* Worked Hours */}
-                    <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center', fontWeight: 600 }}>
-                      {isAbsence ? '0.00' : (actualHours > 0 ? actualHours.toFixed(2) : '—')}
-                    </td>
-                    
-                    {/* Target Hours */}
-                    <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                      {targetHours > 0 ? targetHours.toFixed(1) : '—'}
+                    {/* Ist / Soll Hours */}
+                    <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
+                      <span style={{ fontWeight: 600 }}>
+                        {isAbsence ? '0.00' : (actualHours > 0 ? actualHours.toFixed(2) : '—')}
+                      </span>
+                      <span style={{ color: 'var(--text-secondary)', margin: '0 0.25rem' }}>/</span>
+                      <span style={{ color: 'var(--text-secondary)' }}>
+                        {targetHours > 0 ? targetHours.toFixed(1) : '—'}
+                      </span>
                     </td>
                     
                     {/* Overtime */}
@@ -933,19 +927,10 @@ export default function TimesheetTable({
                       )}
                     </td>
 
-                    {/* Surcharges list */}
-                    <td className="hidden-mobile" style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
-                      {(nightH > 0 || sundayH > 0 || holidayH > 0) ? (
-                        <div style={{ display: 'flex', gap: '0.25rem', justifyContent: 'center' }}>
-                          {nightH > 0 && <span title={`Nachtzuschlag: ${nightH}h`} style={{ cursor: 'help' }}>🌙</span>}
-                          {sundayH > 0 && <span title={`Sonntagszuschlag: ${sundayH}h`} style={{ cursor: 'help' }}>☀️</span>}
-                          {holidayH > 0 && <span title={`Feiertagszuschlag: ${holidayH}h`} style={{ cursor: 'help' }}>🎉</span>}
-                        </div>
-                      ) : '—'}
-                    </td>
+                    {/* Surcharges list removed from here */}
 
                     {/* Note / Status */}
-                    <td className="hidden-mobile" style={{ padding: '0.75rem 0.5rem', color: statusColor, fontStyle: isAbsence ? 'italic' : 'normal', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <td className="hidden-mobile" style={{ padding: '0.75rem 0.5rem', color: statusColor, fontStyle: isAbsence ? 'italic' : 'normal', textAlign: 'left' }}>
                       {displayStatus || '—'}
                     </td>
 
@@ -977,12 +962,21 @@ export default function TimesheetTable({
                   {/* Expanded View for Mobile */}
                   {isExpanded && (
                     <tr className="hidden-desktop" style={{ backgroundColor: 'rgba(0, 0, 0, 0.2)', fontSize: '0.85rem' }}>
-                      <td colSpan={11} style={{ padding: '1rem', borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                      <td colSpan={9} style={{ padding: '1rem', borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                           
-                          <div className="flex-between">
-                             <span style={{ color: 'var(--text-secondary)' }}>Zeitraum:</span>
-                             <span style={{ fontWeight: 600 }}>{startTime ? startTime.slice(0, 5) : '—'} - {endTime ? endTime.slice(0, 5) : '—'} ({totalBreak}m Pause)</span>
+                          <div className="flex-between" style={{ alignItems: 'flex-start' }}>
+                             <span style={{ color: 'var(--text-secondary)' }}>Zeiten:</span>
+                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
+                               {nonDummyRaw.length > 0 ? nonDummyRaw.map((e, i) => {
+                                  return (
+                                    <span key={i}>
+                                      {e.start_time?.slice(0,5)} - {e.end_time ? e.end_time.slice(0,5) : 'Offen'}
+                                    </span>
+                                  );
+                               }) : '—'}
+                               <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>({totalBreak}m Pause)</span>
+                             </div>
                           </div>
                           
                           <div className="flex-between">
@@ -999,6 +993,35 @@ export default function TimesheetTable({
                              <span style={{ color: 'var(--text-secondary)' }}>Status:</span>
                              <span style={{ color: statusColor, textAlign: 'right' }}>{displayStatus || '—'}</span>
                           </div>
+
+                          {(nightH > 0 || sundayH > 0 || holidayH > 0) && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                               <div className="flex-between">
+                                 <span style={{ color: 'var(--text-secondary)' }}>Zuschläge:</span>
+                                 <span style={{ textAlign: 'right' }}>
+                                   {nightH > 0 ? `${nightH}h 🌙 ` : ''}
+                                   {(sundayH > 0 || holidayH > 0) ? `${(sundayH + holidayH).toFixed(2)}h 🎉` : ''}
+                                 </span>
+                               </div>
+                               {dayEntriesList.map((entry, eIdx) => (
+                                 <React.Fragment key={`mob-ext-${eIdx}`}>
+                                   {entry.entry_nightH > 0 && entry.nightIntervals && entry.nightIntervals.map((inv: any, i: number) => (
+                                     <div key={`m-n-${eIdx}-${i}`} style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', textAlign: 'right' }}>
+                                       ↳ {inv.text} Uhr ({inv.rawHours !== inv.effectiveHours ? `${inv.rawHours}h - Pause = ${inv.effectiveHours}h` : `${inv.effectiveHours}h`}) 🌙
+                                     </div>
+                                   ))}
+                                   {(entry.entry_sundayH > 0 || entry.entry_holidayH > 0) && [
+                                     ...(entry.sundayIntervals || []),
+                                     ...(entry.holidayIntervals || [])
+                                   ].map((inv: any, i: number) => (
+                                     <div key={`m-h-${eIdx}-${i}`} style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', textAlign: 'right' }}>
+                                       ↳ {inv.text} Uhr ({inv.rawHours !== inv.effectiveHours ? `${inv.rawHours}h - Pause = ${inv.effectiveHours}h` : `${inv.effectiveHours}h`}) 🎉
+                                     </div>
+                                   ))}
+                                 </React.Fragment>
+                               ))}
+                            </div>
+                          )}
 
                           <div className="flex-between" style={{ marginTop: '0.5rem' }}>
                              <span style={{ color: 'var(--text-secondary)' }}>Kürzel:</span>
@@ -1030,17 +1053,19 @@ export default function TimesheetTable({
                   )}
                   
                   {/* Expanded Sub-rows for Multiple Entries (Desktop only, as mobile handles it above) */}
-                  {hasMultipleEntries && isExpanded && dayEntriesList.map((entry, subIdx) => {
+                  {isExpanded && dayEntriesList.map((entry, subIdx) => {
                     const eNight = entry.entry_nightH || 0;
                     const eSun = entry.entry_sundayH || 0;
                     const eHol = entry.entry_holidayH || 0;
                     const eActual = entry.entry_actual_hours || 0;
                     const isSubAbsence = entry.absence_code === 'U' || entry.absence_code === 'K';
+                    const hasIntervals = !isSubAbsence && (eNight > 0 || eSun > 0 || eHol > 0);
                     
                     let subStatus = '';
                     if (entry.absence_code === 'U') subStatus = '🏖️ Urlaub';
                     if (entry.absence_code === 'K') subStatus = '🤒 Krank';
-                    if (entry.isSpillover) subStatus = 'Nachtschicht Vortag';
+                    if (entry.isSplitPart2) subStatus = '↳ Folgetag (Teil 2)';
+                    if (entry.isSplitPart1) subStatus = 'Nachtschicht (Teil 1)';
                     const isDeleted = !!entry.deleted_at;
                     if (isDeleted) subStatus = 'Gelöscht';
                     const noteStr = entry.note && !entry.note.startsWith('Code: ') ? entry.note : '';
@@ -1059,36 +1084,70 @@ export default function TimesheetTable({
                         <td style={{ padding: '0.5rem 0.5rem 0.5rem 2.5rem', color: 'var(--text-secondary)' }}>
                           ↳ Eintrag {subIdx + 1}
                         </td>
-                        <td style={{ padding: '0.5rem', textAlign: 'center', color: isSubAbsence ? 'var(--text-secondary)' : 'inherit' }}>
-                          {isSubAbsence ? '—' : (entry.start_time ? entry.start_time.slice(0, 5) : '—')}
+                        <td style={{ padding: '0.5rem', textAlign: 'center' }}>
+                          {(eNight > 0 || eSun > 0 || eHol > 0) ? (
+                            <div style={{ display: 'flex', gap: '0.25rem', justifyContent: 'center' }}>
+                              {eNight > 0 && <span title={`Nachtschicht: ${eNight}h`}>🌙</span>}
+                              {(eSun > 0 || eHol > 0) && <span title={`Sonn-/Feiertag: ${eSun + eHol}h`}>🎉</span>}
+                            </div>
+                          ) : '—'}
                         </td>
                         <td style={{ padding: '0.5rem', textAlign: 'center', color: isSubAbsence ? 'var(--text-secondary)' : 'inherit' }}>
-                          {isSubAbsence ? '—' : (entry.end_time ? entry.end_time.slice(0, 5) : '—')}
+                          {isSubAbsence ? '—' : (
+                            entry.isSplitPart2 ? <span style={{ background: 'rgba(14, 165, 233, 0.1)', color: 'var(--info)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>◂ {entry.start_time?.slice(0,5)} bis {entry.end_time?.slice(0,5)}</span> :
+                            entry.isSplitPart1 ? <span style={{ background: 'rgba(168, 85, 247, 0.1)', color: '#a855f7', padding: '2px 6px', borderRadius: '4px', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{entry.start_time?.slice(0,5)} bis {entry.end_time?.slice(0,5)} ▸</span> :
+                            <span style={{ whiteSpace: 'nowrap' }}>{entry.start_time?.slice(0, 5)} - {entry.end_time ? entry.end_time.slice(0, 5) : 'Offen'}</span>
+                          )}
                         </td>
                         <td style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
                           {isSubAbsence ? '—' : `${entry.entry_break_minutes || 0}m`}
                         </td>
-                        <td style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                          {isSubAbsence ? '0.00' : (eActual > 0 ? eActual.toFixed(2) : '—')}
+                        <td style={{ padding: '0.5rem', textAlign: 'center' }}>
+                          <span style={{ fontWeight: 500 }}>{isSubAbsence ? '0.00' : (eActual > 0 ? eActual.toFixed(2) : '—')}</span>
+                          <span style={{ color: 'var(--text-secondary)', margin: '0 0.25rem' }}>/</span>
+                          <span style={{ color: 'var(--text-secondary)' }}>—</span>
                         </td>
-                        <td style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>—</td>
                         <td style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>—</td>
                         <td style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
                           {entry.absence_code || '—'}
                         </td>
-                        <td style={{ padding: '0.5rem', textAlign: 'center' }}>
-                          {(eNight > 0 || eSun > 0 || eHol > 0) ? (
-                            <div style={{ display: 'flex', gap: '0.25rem', justifyContent: 'center' }}>
-                              {eNight > 0 && <span title={`Nacht: ${eNight}h`}>🌙</span>}
-                              {eSun > 0 && <span title={`Sonntag: ${eSun}h`}>☀️</span>}
-                              {eHol > 0 && <span title={`Feiertag: ${eHol}h`}>🎉</span>}
-                            </div>
-                          ) : '—'}
-                        </td>
-                        <td style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: (isSubAbsence || isDeleted) ? 'italic' : 'normal', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {/* Surcharges list removed from here */}
+                        <td style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--text-secondary)', fontStyle: (isSubAbsence || isDeleted) ? 'italic' : 'normal' }}>
                           {finalStatus || '—'}
                         </td>
                         <td style={{ padding: '0.5rem', textAlign: 'center' }}></td>
+                      </tr>
+                    );
+                  })}
+
+                  {/* Desktop Extended Info Rows for Intervals */}
+                  {isExpanded && dayEntriesList.map((entry, subIdx) => {
+                    const eNight = entry.entry_nightH || 0;
+                    const eSun = entry.entry_sundayH || 0;
+                    const eHol = entry.entry_holidayH || 0;
+                    const isSubAbsence = entry.absence_code === 'U' || entry.absence_code === 'K';
+                    if (isSubAbsence || (eNight === 0 && eSun === 0 && eHol === 0) || entry.isSplitPart2) return null;
+                    
+                    return (
+                      <tr key={`ext-${idx}-${subIdx}`} className="hidden-mobile" style={{
+                        backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                        fontSize: '0.85rem',
+                        color: 'var(--text-secondary)'
+                      }}>
+                        <td colSpan={8} style={{ padding: '0.5rem 0.5rem 0.5rem 2.5rem' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                            {eNight > 0 && entry.nightIntervals && entry.nightIntervals.map((inv: any, i: number) => (
+                              <div key={`n-${i}`}>🌙 Nachtzuschlag von {inv.text} Uhr ({inv.rawHours !== inv.effectiveHours ? `${inv.rawHours} Std. abzgl. Pause = ${inv.effectiveHours} Std.` : `${inv.effectiveHours} Std.`})</div>
+                            ))}
+                            {(eSun > 0 || eHol > 0) && [
+                              ...(entry.sundayIntervals || []),
+                              ...(entry.holidayIntervals || [])
+                            ].map((inv: any, i: number) => (
+                              <div key={`h-${i}`}>🎉 Sonn-/Feiertagszuschlag von {inv.text} Uhr ({inv.rawHours !== inv.effectiveHours ? `${inv.rawHours} Std. abzgl. Pause = ${inv.effectiveHours} Std.` : `${inv.effectiveHours} Std.`})</div>
+                            ))}
+                          </div>
+                        </td>
+                        <td></td>
                       </tr>
                     );
                   })}

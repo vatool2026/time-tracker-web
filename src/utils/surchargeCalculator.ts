@@ -9,6 +9,11 @@ export interface SurchargeSettings {
   auto_break_deduction_enabled?: boolean;
 }
 
+export interface SurchargeInterval {
+  text: string;
+  hours: number;
+}
+
 export interface CalculatedSurcharges {
   workedHours: number;
   workedHoursDay1: number;
@@ -26,6 +31,9 @@ export interface CalculatedSurcharges {
   sundaySurcharge: number;
   holidaySurcharge: number;
   totalSurchargePercent: number;
+  nightIntervals?: SurchargeInterval[];
+  sundayIntervals?: SurchargeInterval[];
+  holidayIntervals?: SurchargeInterval[];
 }
 
 /**
@@ -40,6 +48,16 @@ function getIntervalOverlapHours(start1: Date, end1: Date, start2: Date, end2: D
     return diffMs / (1000 * 60 * 60);
   }
   return 0;
+}
+
+function getOverlapInterval(start1: Date, end1: Date, start2: Date, end2: Date): {start: Date, end: Date} | null {
+  const maxStart = start1 > start2 ? start1 : start2;
+  const minEnd = end1 < end2 ? end1 : end2;
+  
+  if (maxStart < minEnd) {
+    return { start: maxStart, end: minEnd };
+  }
+  return null;
 }
 
 /**
@@ -163,6 +181,54 @@ export function calculateSurcharges(
     workedHoursDay2 = Number((rawWorkedDay2 * breakRatio).toFixed(2));
   }
 
+  const exactBreakIntervals: { start: Date, end: Date }[] = [];
+  if (hasExactLogs && breakLogs) {
+    for (const log of breakLogs) {
+      if (log.start && log.end) {
+        const bStart = new Date(log.start);
+        const bEnd = new Date(log.end);
+        if (!isNaN(bStart.getTime()) && !isNaN(bEnd.getTime())) {
+          exactBreakIntervals.push({ start: bStart, end: bEnd });
+        }
+      }
+    }
+  }
+
+  const nightIntervals: SurchargeInterval[] = [];
+  const sundayIntervals: SurchargeInterval[] = [];
+  const holidayIntervals: SurchargeInterval[] = [];
+
+  const addOverlap = (s1: Date, e1: Date, s2: Date, e2: Date, arr: SurchargeInterval[]) => {
+    const o = getOverlapInterval(s1, e1, s2, e2);
+    const overlapH = getIntervalOverlapHours(s1, e1, s2, e2);
+    
+    let effectiveH = overlapH;
+    
+    if (o && overlapH > 0) {
+      if (hasExactLogs) {
+        let exactBreakDeduction = 0;
+        for (const b of exactBreakIntervals) {
+          exactBreakDeduction += getIntervalOverlapHours(o.start, o.end, b.start, b.end);
+        }
+        effectiveH = Math.max(0, overlapH - exactBreakDeduction);
+      } else {
+        effectiveH = overlapH * breakRatio;
+      }
+      
+      const f = (d: Date) => d.toTimeString().slice(0, 5);
+      arr.push({ 
+        text: `${f(o.start)} - ${f(o.end)}`, 
+        rawHours: Number(overlapH.toFixed(2)), 
+        effectiveHours: Number(effectiveH.toFixed(2)) 
+      });
+    }
+    return { raw: overlapH, effective: effectiveH };
+  };
+
+  // Let's define the actual shift bounds for Day 1 and Day 2
+  const d1End = new Date(Math.min(endDate.getTime(), midNight.getTime()));
+  const d2Start = new Date(Math.max(startDate.getTime(), midNight.getTime()));
+
   // 1. NIGHT HOURS CALCULATION
   const nightAStart = parseTimeToDate(day1Str, "00:00:00");
   const nightAEnd = parseTimeToDate(day1Str, settings.night_surcharge_end_time || "06:00:00");
@@ -176,62 +242,67 @@ export function calculateSurcharges(
   const nightCEnd = parseTimeToDate(day3Str, settings.night_surcharge_end_time || "06:00:00");
 
   // Day 1 night overlaps:
-  let rawNightDay1 = 0;
-  rawNightDay1 += getIntervalOverlapHours(startDate, midNight, nightAStart, nightAEnd);
-  rawNightDay1 += getIntervalOverlapHours(startDate, midNight, nightBStart, nightBEnd);
+  let rawNightDay1 = 0, effNightDay1 = 0;
+  const n1A = addOverlap(startDate, d1End, nightAStart, nightAEnd, nightIntervals);
+  rawNightDay1 += n1A.raw; effNightDay1 += n1A.effective;
+  const n1B = addOverlap(startDate, d1End, nightBStart, nightBEnd, nightIntervals);
+  rawNightDay1 += n1B.raw; effNightDay1 += n1B.effective;
 
   // Day 2 night overlaps:
-  let rawNightDay2 = 0;
-  rawNightDay2 += getIntervalOverlapHours(midNight, endDate, nightBStart, nightBEnd); // 00:00 to 06:00 on Day 2
-  rawNightDay2 += getIntervalOverlapHours(midNight, endDate, nightCStart, nightCEnd);
+  let rawNightDay2 = 0, effNightDay2 = 0;
+  const n2A = addOverlap(d2Start, endDate, nightBStart, nightBEnd, nightIntervals);
+  rawNightDay2 += n2A.raw; effNightDay2 += n2A.effective;
+  const n2B = addOverlap(d2Start, endDate, nightCStart, nightCEnd, nightIntervals);
+  rawNightDay2 += n2B.raw; effNightDay2 += n2B.effective;
 
-  const rawNightHours = rawNightDay1 + rawNightDay2;
-  const nightHours = Number((rawNightHours * breakRatio).toFixed(2));
-  const nightHoursDay1 = Number((rawNightDay1 * breakRatio).toFixed(2));
-  const nightHoursDay2 = Number((rawNightDay2 * breakRatio).toFixed(2));
+  const nightHours = Number((effNightDay1 + effNightDay2).toFixed(2));
+  const nightHoursDay1 = Number(effNightDay1.toFixed(2));
+  const nightHoursDay2 = Number(effNightDay2.toFixed(2));
 
   // 2. SUNDAY HOURS CALCULATION
-  let rawSundayDay1 = 0;
-  let rawSundayDay2 = 0;
+  let rawSundayDay1 = 0, effSundayDay1 = 0;
+  let rawSundayDay2 = 0, effSundayDay2 = 0;
   
   if (startDate.getDay() === 0) { // 0 is Sunday
     const sunStart = parseTimeToDate(day1Str, "00:00:00");
     const sunEnd = parseTimeToDate(day2Str, "00:00:00");
-    rawSundayDay1 += getIntervalOverlapHours(startDate, midNight, sunStart, sunEnd);
+    const s1 = addOverlap(startDate, d1End, sunStart, sunEnd, sundayIntervals);
+    rawSundayDay1 += s1.raw; effSundayDay1 += s1.effective;
   }
   if (endDate.getDay() === 0) {
     const sunStart = parseTimeToDate(day2Str, "00:00:00");
     const sunEnd = parseTimeToDate(day3Str, "00:00:00");
-    rawSundayDay2 += getIntervalOverlapHours(midNight, endDate, sunStart, sunEnd);
+    const s2 = addOverlap(d2Start, endDate, sunStart, sunEnd, sundayIntervals);
+    rawSundayDay2 += s2.raw; effSundayDay2 += s2.effective;
   }
 
-  const rawSundayHours = rawSundayDay1 + rawSundayDay2;
-  const sundayHours = Number((rawSundayHours * breakRatio).toFixed(2));
-  const sundayHoursDay1 = Number((rawSundayDay1 * breakRatio).toFixed(2));
-  const sundayHoursDay2 = Number((rawSundayDay2 * breakRatio).toFixed(2));
+  const sundayHours = Number((effSundayDay1 + effSundayDay2).toFixed(2));
+  const sundayHoursDay1 = Number(effSundayDay1.toFixed(2));
+  const sundayHoursDay2 = Number(effSundayDay2.toFixed(2));
 
   // 3. HOLIDAY HOURS CALCULATION
-  let rawHolidayDay1 = 0;
-  let rawHolidayDay2 = 0;
+  let rawHolidayDay1 = 0, effHolidayDay1 = 0;
+  let rawHolidayDay2 = 0, effHolidayDay2 = 0;
   
   const holidayInfo1 = isGermanHoliday(startDate, companyState, companyHolidays);
   if (holidayInfo1.isHoliday && !holidayInfo1.isHalfHoliday) {
     const holStart = parseTimeToDate(day1Str, "00:00:00");
     const holEnd = parseTimeToDate(day2Str, "00:00:00");
-    rawHolidayDay1 += getIntervalOverlapHours(startDate, midNight, holStart, holEnd);
+    const h1 = addOverlap(startDate, d1End, holStart, holEnd, holidayIntervals);
+    rawHolidayDay1 += h1.raw; effHolidayDay1 += h1.effective;
   }
   
   const holidayInfo2 = isGermanHoliday(endDate, companyState, companyHolidays);
   if (holidayInfo2.isHoliday && !holidayInfo2.isHalfHoliday) {
     const holStart = parseTimeToDate(day2Str, "00:00:00");
     const holEnd = parseTimeToDate(day3Str, "00:00:00");
-    rawHolidayDay2 += getIntervalOverlapHours(midNight, endDate, holStart, holEnd);
+    const h2 = addOverlap(d2Start, endDate, holStart, holEnd, holidayIntervals);
+    rawHolidayDay2 += h2.raw; effHolidayDay2 += h2.effective;
   }
 
-  const rawHolidayHours = rawHolidayDay1 + rawHolidayDay2;
-  const holidayHours = Number((rawHolidayHours * breakRatio).toFixed(2));
-  const holidayHoursDay1 = Number((rawHolidayDay1 * breakRatio).toFixed(2));
-  const holidayHoursDay2 = Number((rawHolidayDay2 * breakRatio).toFixed(2));
+  const holidayHours = Number((effHolidayDay1 + effHolidayDay2).toFixed(2));
+  const holidayHoursDay1 = Number(effHolidayDay1.toFixed(2));
+  const holidayHoursDay2 = Number(effHolidayDay2.toFixed(2));
 
   // Surcharges in equivalent hours = hours * (rate / 100)
   const nightSurcharge = Number((nightHours * (settings.night_surcharge_rate / 100)).toFixed(2));
@@ -258,6 +329,9 @@ export function calculateSurcharges(
     sundaySurcharge,
     holidaySurcharge,
     totalSurchargePercent,
+    nightIntervals,
+    sundayIntervals,
+    holidayIntervals
   };
 }
 
