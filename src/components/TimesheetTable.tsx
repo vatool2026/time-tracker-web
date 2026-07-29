@@ -789,9 +789,9 @@ export default function TimesheetTable({
             <tr style={{ borderBottom: '1px solid var(--glass-border)', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
               <th style={{ padding: '0.75rem 0.5rem', textAlign: 'left', width: '130px' }}>Datum</th>
               <th style={{ padding: '0.75rem 0.5rem', textAlign: 'center', width: '40px' }}></th>
-              <th className="hidden-mobile" style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>Erfasste Zeiten</th>
+              <th style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>Erfasste Zeiten</th>
               <th className="hidden-mobile" style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>Pause</th>
-              <th style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>Ist / Soll Std.</th>
+              <th className="hidden-mobile" style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>Ist / Soll Std.</th>
               <th className="hidden-mobile" style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>Differenz</th>
               <th className="hidden-mobile" style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>Kürzel</th>
               <th className="hidden-mobile" style={{ padding: '0.75rem 0.5rem', textAlign: 'left', minWidth: '200px' }}>Notiz / Status</th>
@@ -866,7 +866,7 @@ export default function TimesheetTable({
                     </td>
                     
                     {/* Erfasste Zeiten */}
-                    <td className="hidden-mobile" style={{ padding: '0.75rem 0.5rem', textAlign: 'center', color: isAbsence ? 'var(--text-secondary)' : 'inherit' }}>
+                    <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center', color: isAbsence ? 'var(--text-secondary)' : 'inherit' }}>
                       {isAbsence ? '—' : (
                         nonDummyRaw.length > 0 ? (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', alignItems: 'center' }}>
@@ -888,7 +888,7 @@ export default function TimesheetTable({
                     </td>
                     
                     {/* Ist / Soll Hours */}
-                    <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
+                    <td className="hidden-mobile" style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
                       <span style={{ fontWeight: 600 }}>
                         {isAbsence ? '0.00' : (actualHours > 0 ? actualHours.toFixed(2) : '—')}
                       </span>
@@ -966,16 +966,12 @@ export default function TimesheetTable({
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                           
                           <div className="flex-between" style={{ alignItems: 'flex-start' }}>
-                             <span style={{ color: 'var(--text-secondary)' }}>Zeiten:</span>
-                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
-                               {nonDummyRaw.length > 0 ? nonDummyRaw.map((e, i) => {
-                                  return (
-                                    <span key={i}>
-                                      {e.start_time?.slice(0,5)} - {e.end_time ? e.end_time.slice(0,5) : 'Offen'}
-                                    </span>
-                                  );
-                               }) : '—'}
-                               <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>({totalBreak}m Pause)</span>
+                             <span style={{ color: 'var(--text-secondary)' }}>Ist / Soll Std:</span>
+                             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                <span style={{ fontWeight: 600 }}>{isAbsence ? '0.00' : (actualHours > 0 ? actualHours.toFixed(2) : '—')}</span>
+                                <span style={{ color: 'var(--text-secondary)' }}>/</span>
+                                <span style={{ color: 'var(--text-secondary)' }}>{targetHours > 0 ? targetHours.toFixed(1) : '—'}</span>
+                                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>({totalBreak}m Pause)</span>
                              </div>
                           </div>
                           
