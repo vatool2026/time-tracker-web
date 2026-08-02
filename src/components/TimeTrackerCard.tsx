@@ -88,7 +88,7 @@ export default function TimeTrackerCard({
   const [manualDate, setManualDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [manualStartTime, setManualStartTime] = useState<string>('08:00');
   const [manualEndTime, setManualEndTime] = useState<string>('16:30');
-  const [manualBreak, setManualBreak] = useState<number>(30);
+  const [manualBreak, setManualBreak] = useState<number | ''>(30);
 
   const [faviconState, setFaviconState] = useState<FaviconState>('default');
 
@@ -380,7 +380,7 @@ export default function TimeTrackerCard({
 
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await createManualTimeEntryAction(currentUserId, manualDate, manualStartTime, manualEndTime, manualBreak, '', '');
+    const res = await createManualTimeEntryAction(currentUserId, manualDate, manualStartTime, manualEndTime, Number(manualBreak) || 0, '', '');
     if (res.success) {
       showMsg('success', `Zeiten für den ${new Date(manualDate).toLocaleDateString('de-DE')} (${manualStartTime} - ${manualEndTime}) erfolgreich eingetragen!`);
       setManualDate(new Date().toISOString().split('T')[0]);
@@ -637,7 +637,7 @@ export default function TimeTrackerCard({
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>Pause (Min)</label>
-              <input type="number" value={manualBreak} onChange={(e) => setManualBreak(Number(e.target.value))} className="input-field" min="0" required />
+              <input type="number" value={manualBreak} onChange={(e) => setManualBreak(e.target.value === '' ? '' : Number(e.target.value))} className="input-field" min="0" required />
             </div>
           </div>
           <div className="grid-cols-2" style={{ gap: '1rem' }}>
