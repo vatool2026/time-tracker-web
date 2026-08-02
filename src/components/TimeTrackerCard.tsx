@@ -51,6 +51,7 @@ export default function TimeTrackerCard({
   const isOfflineEntry = !!optimisticActiveEntry && !activeEntry;
 
   const [note, setNote] = useState<string>('');
+  const [customStartTime, setCustomStartTime] = useState<string>('');
   const [elapsedTime, setElapsedTime] = useState<string>('00:00:00');
   const [isOnBreak, setIsOnBreak] = useState<boolean>(() => {
     if (typeof window !== 'undefined' && (activeEntry || localStorage.getItem('optimistic_active_entry'))) {
@@ -212,15 +213,20 @@ export default function TimeTrackerCard({
   };
 
   const handleClockIn = async () => {
+    let finalStartTime = customStartTime;
+    if (finalStartTime && finalStartTime.length === 5) {
+      finalStartTime += ':00'; // Append seconds
+    }
+
     if (!navigator.onLine) {
-      const offlineAction = await addOfflineAction('clockInAction', { note, qr_code_id: null });
+      const offlineAction = await addOfflineAction('clockInAction', { note, qr_code_id: null, customStartTime: finalStartTime || undefined });
       
       // Optimistic UI updates
       const now = new Date();
       const newEntry = {
         id: 'optimistic-' + Date.now(),
         entry_date: now.toISOString().split('T')[0],
-        start_time: now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        start_time: finalStartTime || now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
         break_minutes: 0,
         note: note
       };
@@ -230,12 +236,14 @@ export default function TimeTrackerCard({
 
       showMsg('success', 'Offline gespeichert. Wird synchronisiert, sobald wieder Empfang besteht.');
       setNote('');
+      setCustomStartTime('');
       return;
     }
-    const res = await clockInAction(note);
+    const res = await clockInAction(note, null, undefined, finalStartTime || undefined);
     if (res.success) {
       showMsg('success', 'Einstempeln erfolgreich verbucht!');
       setNote('');
+      setCustomStartTime('');
       setFaviconState('active');
 
       // Request Notification Permission and show local notification (Variante A)
@@ -515,6 +523,21 @@ export default function TimeTrackerCard({
             <Edit3 size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
           </div>
         </div>
+
+        {/* Custom Start Time input field */}
+        {!displayEntry && (
+          <div style={{ width: '100%' }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>
+              Startzeit nachtragen (optional)
+            </label>
+            <input
+              type="time"
+              value={customStartTime}
+              onChange={(e) => setCustomStartTime(e.target.value)}
+              className="input-field"
+            />
+          </div>
+        )}
 
         {/* Buttons Grid */}
         <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '0.5rem', marginTop: 'auto' }}>

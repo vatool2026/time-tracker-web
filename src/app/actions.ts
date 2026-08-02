@@ -262,16 +262,18 @@ export async function logoutAction(): Promise<void> {
 /**
  * Clock in: Inserts a new time entry starting now.
  */
-export async function clockInAction(note: string = '', qr_code_id: string | null = null, offlineTimestamp?: string): Promise<ActionResponse> {
+export async function clockInAction(note: string = '', qr_code_id: string | null = null, offlineTimestamp?: string, customStartTime?: string): Promise<ActionResponse> {
   const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, message: 'Nicht authentifiziert.' };
 
   const today = offlineTimestamp ? new Date(offlineTimestamp).toISOString().split('T')[0] : getLocalDateString();
-  const nowTime = offlineTimestamp 
-    ? new Date(offlineTimestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) 
-    : getLocalTimeString();
+  const nowTime = customStartTime 
+    ? (customStartTime.length === 5 ? customStartTime + ':00' : customStartTime) 
+    : (offlineTimestamp 
+      ? new Date(offlineTimestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) 
+      : getLocalTimeString());
 
   // Check if there is already an active entry for today
   const { data: existing, error: checkError } = await supabase
