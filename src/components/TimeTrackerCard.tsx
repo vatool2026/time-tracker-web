@@ -241,7 +241,11 @@ export default function TimeTrackerCard({
     }
     const res = await clockInAction(note, null, undefined, finalStartTime || undefined);
     if (res.success) {
-      showMsg('success', 'Einstempeln erfolgreich verbucht!');
+      if (finalStartTime) {
+        showMsg('success', `Einstempeln für ${finalStartTime} Uhr erfolgreich verbucht!`);
+      } else {
+        showMsg('success', 'Einstempeln erfolgreich verbucht!');
+      }
       setNote('');
       setCustomStartTime('');
       setFaviconState('active');
@@ -378,7 +382,11 @@ export default function TimeTrackerCard({
     e.preventDefault();
     const res = await createManualTimeEntryAction(currentUserId, manualDate, manualStartTime, manualEndTime, manualBreak, '', '');
     if (res.success) {
-      showMsg('success', 'Nachträgliche Zeiterfassung erfolgreich eingetragen.');
+      showMsg('success', `Zeiten für den ${new Date(manualDate).toLocaleDateString('de-DE')} (${manualStartTime} - ${manualEndTime}) erfolgreich eingetragen!`);
+      setManualDate(new Date().toISOString().split('T')[0]);
+      setManualStartTime('08:00');
+      setManualEndTime('16:30');
+      setManualBreak(30);
     } else {
       showMsg('error', res.message);
     }
