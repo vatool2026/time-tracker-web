@@ -19,6 +19,15 @@ export default function Home() {
           </Link>
         </div>
       </div>
+
+      <div style={{ position: 'absolute', bottom: '2rem', display: 'flex', gap: '1.5rem', zIndex: 10 }}>
+        <Link href="/impressum" style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', textDecoration: 'none' }}>
+          Impressum
+        </Link>
+        <Link href="/datenschutz" style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', textDecoration: 'none' }}>
+          Datenschutz
+        </Link>
+      </div>
     </main>
   );
 }
