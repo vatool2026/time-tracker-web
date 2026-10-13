@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Zeiterfassung Pro</string>
+    <string name="widget_description">Ein- und Ausstempeln direkt vom Homescreen</string>
+</resources>

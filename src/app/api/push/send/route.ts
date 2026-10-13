@@ -128,7 +128,8 @@ export async function GET(request: Request) {
                 title: 'Zeiterfassung',
                 body: notificationMessage,
                 icon: '/icons/icon-warning.svg',
-                badge: '/icons/icon-warning.svg'
+                badge: '/icons/icon-warning.svg',
+                url: '/dashboard'
               })
             });
           }

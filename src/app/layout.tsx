@@ -8,7 +8,6 @@ import { OfflineSyncManager } from '@/components/OfflineSyncManager';
 export const metadata: Metadata = {
   title: 'Zeiterfassung Pro',
   description: 'Premium SaaS Zeiterfassung für moderne Unternehmen',
-  manifest: '/manifest.json?v=2',
   icons: {
     apple: '/icon-192x192.png',
   },

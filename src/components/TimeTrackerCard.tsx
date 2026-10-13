@@ -52,6 +52,7 @@ export default function TimeTrackerCard({
 
   const [note, setNote] = useState<string>('');
   const [customStartTime, setCustomStartTime] = useState<string>('');
+  const [customEndTime, setCustomEndTime] = useState<string>('');
   const [elapsedTime, setElapsedTime] = useState<string>('00:00:00');
   const [isOnBreak, setIsOnBreak] = useState<boolean>(() => {
     if (typeof window !== 'undefined' && (activeEntry || localStorage.getItem('optimistic_active_entry'))) {
@@ -267,6 +268,7 @@ export default function TimeTrackerCard({
               icon: '/icons/icon-active.svg',
               badge: '/icons/icon-active.svg',
               tag: 'tracking-start',
+              data: { url: '/dashboard' },
               requireInteraction: true // Make it persistent until dismissed
             });
 
@@ -303,8 +305,14 @@ export default function TimeTrackerCard({
     if (isOnBreak) {
       await handleEndBreak();
     }
+
+    let finalEndTime = customEndTime;
+    if (finalEndTime && finalEndTime.length === 5) {
+      finalEndTime += ':00'; // Append seconds
+    }
+
     if (!navigator.onLine) {
-      await addOfflineAction('clockOutAction', { note });
+      await addOfflineAction('clockOutAction', { note, customEndTime: finalEndTime || undefined });
       
       // Optimistic UI updates
       setOptimisticActiveEntry(null);
@@ -313,12 +321,18 @@ export default function TimeTrackerCard({
 
       showMsg('success', 'Offline gespeichert. Wird synchronisiert, sobald wieder Empfang besteht.');
       setNote('');
+      setCustomEndTime('');
       return;
     }
-    const res = await clockOutAction(note);
+    const res = await clockOutAction(note, undefined, finalEndTime || undefined);
     if (res.success) {
-      showMsg('success', 'Ausstempeln erfolgreich verbucht!');
+      if (finalEndTime) {
+        showMsg('success', `Ausstempeln für ${finalEndTime.slice(0, 5)} Uhr erfolgreich verbucht!`);
+      } else {
+        showMsg('success', 'Ausstempeln erfolgreich verbucht!');
+      }
       setNote('');
+      setCustomEndTime('');
       setFaviconState('default');
       
       // Clear App Badge
@@ -430,7 +444,9 @@ export default function TimeTrackerCard({
             {elapsedTime}
           </span>
           <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-            {displayEntry ? `Heute gestartet um ${displayEntry.start_time.slice(0,5)} Uhr` : 'Bereit zum Einstempeln'}
+            {displayEntry 
+              ? `${displayEntry.entry_date === new Date().toISOString().split('T')[0] ? 'Heute' : `Am ${new Date(displayEntry.entry_date + 'T00:00:00').toLocaleDateString('de-DE')}`} gestartet um ${displayEntry.start_time.slice(0,5)} Uhr` 
+              : 'Bereit zum Einstempeln'}
           </span>
         </div>
 
@@ -535,13 +551,50 @@ export default function TimeTrackerCard({
         {/* Custom Start Time input field */}
         {!displayEntry && (
           <div style={{ width: '100%' }}>
-            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>
-              Startzeit nachtragen (optional)
-            </label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                Startzeit nachtragen (optional)
+              </label>
+              {customStartTime && (
+                <button
+                  type="button"
+                  onClick={() => setCustomStartTime('')}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '0.75rem', cursor: 'pointer', textDecoration: 'underline' }}
+                >
+                  Zurücksetzen
+                </button>
+              )}
+            </div>
             <input
               type="time"
               value={customStartTime}
               onChange={(e) => setCustomStartTime(e.target.value)}
+              className="input-field"
+            />
+          </div>
+        )}
+
+        {/* Custom End Time input field */}
+        {displayEntry && (
+          <div style={{ width: '100%' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                Endzeit nachtragen (optional)
+              </label>
+              {customEndTime && (
+                <button
+                  type="button"
+                  onClick={() => setCustomEndTime('')}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '0.75rem', cursor: 'pointer', textDecoration: 'underline' }}
+                >
+                  Zurücksetzen
+                </button>
+              )}
+            </div>
+            <input
+              type="time"
+              value={customEndTime}
+              onChange={(e) => setCustomEndTime(e.target.value)}
               className="input-field"
             />
           </div>
@@ -599,7 +652,7 @@ export default function TimeTrackerCard({
                 </button>
               )}
               <button onClick={handleClockOut} className="btn btn-primary" style={{ flex: 1, background: 'var(--danger)', boxShadow: '0 4px 14px 0 rgba(239, 68, 68, 0.39)', height: '48px' }}>
-                <LogOut size={18} /> Ausstempeln
+                <LogOut size={18} /> {customEndTime ? `Ausstempeln (${customEndTime} Uhr)` : 'Ausstempeln'}
               </button>
             </>
           )}

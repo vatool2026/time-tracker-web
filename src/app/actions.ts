@@ -310,15 +310,17 @@ export async function clockInAction(note: string = '', qr_code_id: string | null
 /**
  * Clock out: Updates the active entry for today with end_time.
  */
-export async function clockOutAction(note: string = '', offlineTimestamp?: string): Promise<ActionResponse> {
+export async function clockOutAction(note: string = '', offlineTimestamp?: string, customEndTime?: string): Promise<ActionResponse> {
   const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, message: 'Nicht authentifiziert.' };
 
-  const nowTime = offlineTimestamp 
-    ? new Date(offlineTimestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) 
-    : getLocalTimeString();
+  const nowTime = customEndTime 
+    ? (customEndTime.length === 5 ? customEndTime + ':00' : customEndTime)
+    : (offlineTimestamp 
+      ? new Date(offlineTimestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) 
+      : getLocalTimeString());
 
   // Find active entry (either today or older, but usually today)
   const { data: activeEntries, error: findError } = await supabase

@@ -16,6 +16,11 @@ export function OfflineSyncManager() {
   const [queueLength, setQueueLength] = useState(0);
 
   useEffect(() => {
+    // Ask the browser not to evict our offline data (IndexedDB queue) under storage pressure
+    if (typeof navigator !== 'undefined' && navigator.storage?.persist) {
+      navigator.storage.persist().catch(() => {});
+    }
+
     // Check initial status
     setIsOffline(!navigator.onLine);
 
@@ -67,7 +72,7 @@ export function OfflineSyncManager() {
               await clockInAction(action.payload.note, action.payload.qr_code_id, action.timestamp);
               break;
             case 'clockOutAction':
-              await clockOutAction(action.payload.note, action.timestamp);
+              await clockOutAction(action.payload.note, action.timestamp, action.payload.customEndTime);
               break;
             case 'recordBreakAction':
               await recordBreakAction(action.payload.minutes);

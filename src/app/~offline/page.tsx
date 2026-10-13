@@ -27,7 +27,7 @@ export default function OfflinePage() {
         </p>
 
         <Link 
-          href="/"
+          href="/dashboard"
           className="w-full mt-4 bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-2 px-4 rounded-md inline-flex justify-center items-center transition-colors"
         >
           Zum Dashboard

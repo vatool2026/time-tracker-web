@@ -54,9 +54,23 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user = null
+  let sessionCheckFailed = false
+  try {
+    const { data, error } = await supabase.auth.getUser()
+    user = data.user
+    // Network trouble (poor reception) is not the same as "not logged in"
+    if (error && (error.name === 'AuthRetryableFetchError' || (error as { status?: number }).status === 0)) {
+      sessionCheckFailed = true
+    }
+  } catch {
+    sessionCheckFailed = true
+  }
+
+  // If we could not reach Supabase, let the request through instead of kicking the user to /login
+  if (sessionCheckFailed) {
+    return supabaseResponse
+  }
 
   // Protect routes based on user state
   if (!user && request.nextUrl.pathname.startsWith('/dashboard')) {

@@ -42,7 +42,7 @@ self.addEventListener('push', function (event: PushEvent) {
       data: {
         dateOfArrival: Date.now(),
         primaryKey: '2',
-        url: data.url || '/'
+        url: data.url || '/dashboard'
       }
     };
     event.waitUntil(self.registration.showNotification(data.title || 'Zeiterfassung', options));
@@ -52,22 +52,36 @@ self.addEventListener('push', function (event: PushEvent) {
 self.addEventListener('notificationclick', (event: NotificationEvent) => {
   event.notification.close();
 
-  const urlToOpen = event.notification.data?.url || '/';
+  // Resolve the target against our own origin; never navigate to foreign origins.
+  let target = new URL('/dashboard', self.location.origin);
+  try {
+    const candidate = new URL(event.notification.data?.url || '/dashboard', self.location.origin);
+    if (candidate.origin === self.location.origin) target = candidate;
+  } catch {
+    // keep default
+  }
 
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // If a window is already open, focus it and potentially navigate
+    (async () => {
+      const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       for (const client of clientList) {
         if (client.url && 'focus' in client) {
-          client.focus();
-          // Optional: client.navigate(urlToOpen) if you want to force navigation
-          return;
+          try {
+            const focused = await client.focus();
+            if (focused.url !== target.href && 'navigate' in focused) {
+              await focused.navigate(target.href);
+            }
+            return;
+          } catch (err) {
+            console.error('Failed to focus/navigate client, opening new window instead:', err);
+            break;
+          }
         }
       }
-      // Otherwise, open a new window
+      // No usable window: open the app at the target
       if (self.clients.openWindow) {
-        return self.clients.openWindow(urlToOpen);
+        await self.clients.openWindow(target.href);
       }
-    })
+    })()
   );
 });
